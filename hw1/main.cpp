@@ -2,8 +2,10 @@
 Student No.: 0616214
 Student Name: YU-AN CHEN
 Email: 59487andy@gmail.com
-Statement: I am fully aware that this program is not suppposed to be posted to a
-public server, such as a public GitHub repostiory or a public web page.
+SE tag: xnxcxtxuxoxsx
+Statement: I am fully aware that this program is not
+suppposed to be posted to a public server, such as a
+public GitHub repostiory or a public web page.
 */
 
 #include <cstring> // std::strtok()
