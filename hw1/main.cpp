@@ -64,6 +64,23 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    // check "|" exist, if yes, split into two commands
+    bool is_pipe = false;
+    int cv1_idx = 0, cv2_idx = 0;
+    char *cv1[50], *cv2[50]; // command in char* array
+    for (int idx = 0; idx < cv_idx; idx++) {
+      if (!is_pipe && strcmp(cv[idx], "|") == 0) {
+        is_pipe = true;
+        continue;
+      }
+      if (!is_pipe) // "|" not be read yet
+        cv1[cv1_idx++] = cv[idx];
+      else // after "|" show up
+        cv2[cv2_idx++] = cv[idx];
+    }
+    cv1[cv1_idx] = nullptr;
+    cv2[cv2_idx] = nullptr;
+
     // end the program when input "exit"
     if (strcmp(cv[0], "exit") == 0) {
       is_continue = false;
