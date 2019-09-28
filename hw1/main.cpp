@@ -90,23 +90,45 @@ int main(int argc, char *argv[]) {
     // ignore background child return signal to prevent Zombie Process
     signal(SIGCHLD, SIG_IGN);
 
-    pid_t pid;
-    pid = fork();
-    if (pid == 0) { // child process
-      // io redirect
-      if (is_input) { // input
-        int fd = open(filename, O_RDONLY);
-        dup2(fd, STDIN_FILENO);
-        close(fd);
-      } else if (is_output) { // output
-        int fd = creat(filename, 0644);
-        dup2(fd, STDOUT_FILENO);
-        close(fd);
-      }
+    pid_t pid = fork();
 
-      // execute the command
-      if (execvp(cv[0], cv) < 0)
-        std::cout << "Command \"" << cv[0] << "\" not found!" << std::endl;
+    if (pid == 0) {   // child process
+      if (!is_pipe) { // if no "|"
+        // io redirect
+        if (is_input) { // input
+          int fd = open(filename, O_RDONLY);
+          dup2(fd, STDIN_FILENO);
+          close(fd);
+        } else if (is_output) { // output
+          int fd = creat(filename, 0644);
+          dup2(fd, STDOUT_FILENO);
+          close(fd);
+        }
+        // execute the command
+        if (execvp(cv[0], cv) < 0)
+          std::cout << "Command \"" << cv[0] << "\" not found!" << std::endl;
+      } else { // if need "|"
+        int fd[2];
+        pipe(fd);
+        pid_t pipe_pid = fork();
+        if (pipe_pid == 0) { // command before "|"
+          // output ->  pipe
+          dup2(fd[1], STDOUT_FILENO);
+          close(fd[0]);
+          // exec first command
+          if (execvp(cv1[0], cv1) < 0)
+            std::cout << "Command \"" << cv1[0] << "\" not found!" << std::endl;
+        } else if (pipe_pid > 0) { // command after "|"
+          // pipe -> input
+          close(fd[1]);
+          dup2(fd[0], STDIN_FILENO);
+          // exec second command
+          if (execvp(cv2[0], cv2) < 0)
+            std::cout << "Command \"" << cv2[0] << "\" not found!" << std::endl;
+        } else {
+          std::cout << "Pipe Error!" << std::endl;
+        }
+      }
 
     } else if (pid > 0) { // parent process
       // child process run in foreground, parent process should wait
