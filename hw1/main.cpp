@@ -109,19 +109,21 @@ int main(int argc, char *argv[]) {
           std::cout << "Command \"" << cv[0] << "\" not found!" << std::endl;
       } else { // if need "|"
         int fd[2];
-        pipe(fd);
+        pipe(fd); // create pipe shared by parent and child
         pid_t pipe_pid = fork();
         if (pipe_pid == 0) { // command before "|"
           // output ->  pipe
+          close(fd[0]); // close pipe read end
           dup2(fd[1], STDOUT_FILENO);
-          close(fd[0]);
+          close(fd[1]); // close pipe write end
           // exec first command
           if (execvp(cv1[0], cv1) < 0)
             std::cout << "Command \"" << cv1[0] << "\" not found!" << std::endl;
         } else if (pipe_pid > 0) { // command after "|"
           // pipe -> input
-          close(fd[1]);
+          close(fd[1]); // close pipe write end
           dup2(fd[0], STDIN_FILENO);
+          close(fd[0]); // close pipe read end
           // exec second command
           if (execvp(cv2[0], cv2) < 0)
             std::cout << "Command \"" << cv2[0] << "\" not found!" << std::endl;
