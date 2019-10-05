@@ -16,6 +16,8 @@ public GitHub repostiory or a public web page.
 #include <unistd.h>    // fork()
 #include <vector>
 
+void signal_handler(int sig) { wait(nullptr); }
+
 int main(int argc, char *argv[]) {
   bool is_continue = true;
   while (is_continue) {
@@ -87,9 +89,6 @@ int main(int argc, char *argv[]) {
       break;
     }
 
-    // ignore background child return signal to prevent Zombie Process
-    signal(SIGCHLD, SIG_IGN);
-
     pid_t pid = fork();
 
     if (pid == 0) {   // child process
@@ -134,7 +133,9 @@ int main(int argc, char *argv[]) {
 
     } else if (pid > 0) { // parent process
       // child process run in foreground, parent process should wait
-      if (!is_background)
+      if (is_background)
+        signal(SIGCHLD, signal_handler);
+      else
         wait(nullptr);
 
     } else {
