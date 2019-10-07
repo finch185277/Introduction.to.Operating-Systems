@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     // parse the line
     // covert line from std::string to std::vector<char>,
     // and use std::strtok to split command and args
-    char *cv[100];  // command in char* array
+    char *cv[1000]; // command in char* array
     int cv_idx = 0; // cv index, point to next char* of cv
     std::vector<char> lv(line.begin(), line.end());
     lv.push_back('\0');
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     // check "|" exist, if yes, split into two commands
     bool is_pipe = false;
     int cv1_idx = 0, cv2_idx = 0;
-    char *cv1[50], *cv2[50]; // command in char* array
+    char *cv1[500], *cv2[500]; // command in char* array
     for (int idx = 0; idx < cv_idx; idx++) {
       if (!is_pipe && strcmp(cv[idx], "|") == 0) {
         is_pipe = true;
