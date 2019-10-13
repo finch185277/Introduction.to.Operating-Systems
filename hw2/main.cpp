@@ -8,6 +8,7 @@ supposed to be posted to a public server, such as a
 public GitHub repository or a public web page.
 */
 
+#include <cstring>
 #include <iostream>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -17,6 +18,10 @@ public GitHub repository or a public web page.
 #include <vector>
 
 int main(int argc, char *argv[]) {
+  // create the shared memory
+  int shmid = shmget(IPC_PRIVATE, 1024, IPC_CREAT | 0600);
+  char *shmaddr = (char *)shmat(shmid, (void *)0, 0);
+
   int dimension, counter = 1;
   std::cin >> dimension;
 
@@ -26,13 +31,25 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < dimension; j++)
       raw.at(i).at(j) = i * dimension + j;
 
-  for (; counter <= 16; counter++) {
+  for (; counter <= 6; counter++) {
     int checksum = 0;
+
+    // start of count the time
     struct timeval start, end;
     gettimeofday(&start, 0);
 
-    std::cout << "test" << '\n';
+    pid_t pid = fork();
+    if (pid == 0) {
+      std::strcpy(shmaddr, "child -> hello world");
+      exit(0);
+    } else if (pid > 0) {
+      wait(nullptr);
+      std::cout << shmaddr << " -> parent" << '\n';
+    } else {
+      std::cout << "Fork Error!" << '\n';
+    }
 
+    // end of count the time
     gettimeofday(&end, 0);
     int sec = end.tv_sec - start.tv_sec;
     int usec = end.tv_usec - start.tv_usec;
@@ -40,5 +57,10 @@ int main(int argc, char *argv[]) {
     std::cout << "elapsed " << sec * 1000 + (usec / 1000.0)
               << " sec, Checksum: " << checksum << '\n';
   }
+
+  // detach and detroy the shared memory
+  shmdt(shmaddr);
+  shmctl(shmid, IPC_RMID, nullptr);
+
   return 0;
 }
