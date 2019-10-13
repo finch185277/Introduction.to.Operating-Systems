@@ -20,7 +20,7 @@ public GitHub repository or a public web page.
 int main(int argc, char *argv[]) {
   // create the shared memory
   int shmid = shmget(IPC_PRIVATE, 1024, IPC_CREAT | 0600);
-  char *shmaddr = (char *)shmat(shmid, (void *)0, 0);
+  int *shmaddr = (int *)shmat(shmid, (void *)0, 0);
 
   int dimension, counter = 1;
   std::cin >> dimension;
@@ -40,11 +40,12 @@ int main(int argc, char *argv[]) {
 
     pid_t pid = fork();
     if (pid == 0) {
-      std::strcpy(shmaddr, "child -> hello world");
+      *shmaddr = 20;
+      std::cout << *shmaddr << '\n';
       exit(0);
     } else if (pid > 0) {
       wait(nullptr);
-      std::cout << shmaddr << " -> parent" << '\n';
+      std::cout << *shmaddr + 30 << '\n';
     } else {
       std::cout << "Fork Error!" << '\n';
     }
