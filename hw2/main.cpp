@@ -23,13 +23,13 @@ int main(int argc, char *argv[]) {
   unsigned int *matrix_a;
   unsigned int *matrix_b;
   unsigned int *matrix_c;
-  unsigned int matrix_a_id =
+  int matrix_a_id =
       shmget(IPC_PRIVATE, dimension * dimension * sizeof(unsigned int),
              IPC_CREAT | 0600);
-  unsigned int matrix_b_id =
+  int matrix_b_id =
       shmget(IPC_PRIVATE, dimension * dimension * sizeof(unsigned int),
              IPC_CREAT | 0600);
-  unsigned int matrix_c_id =
+  int matrix_c_id =
       shmget(IPC_PRIVATE, dimension * dimension * sizeof(unsigned int),
              IPC_CREAT | 0600);
   matrix_a = (unsigned int *)shmat(matrix_a_id, nullptr, 0);
