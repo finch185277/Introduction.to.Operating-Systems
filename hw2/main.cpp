@@ -20,24 +20,30 @@ int main(int argc, char *argv[]) {
   std::cin >> dimension;
 
   // using shared memory to create three matrix
-  int *matrix_a_data;
-  int *matrix_b_data;
-  int *matrix_c_data;
-  int **matrix_a;
-  int **matrix_b;
-  int **matrix_c;
-  int matrix_a_id =
-      shmget(IPC_PRIVATE, sizeof(int[dimension]), IPC_CREAT | 0600);
-  int matrix_b_id =
-      shmget(IPC_PRIVATE, sizeof(int[dimension]), IPC_CREAT | 0600);
-  int matrix_c_id =
-      shmget(IPC_PRIVATE, sizeof(int[dimension]), IPC_CREAT | 0600);
-  matrix_a_data = (int *)shmat(matrix_a_id, nullptr, 0);
-  matrix_b_data = (int *)shmat(matrix_b_id, nullptr, 0);
-  matrix_c_data = (int *)shmat(matrix_c_id, nullptr, 0);
-  matrix_a = (int **)malloc(sizeof(int[dimension][dimension]));
-  matrix_b = (int **)malloc(sizeof(int[dimension][dimension]));
-  matrix_c = (int **)malloc(sizeof(int[dimension][dimension]));
+  unsigned int *matrix_a_data;
+  unsigned int *matrix_b_data;
+  unsigned int *matrix_c_data;
+  unsigned int **matrix_a;
+  unsigned int **matrix_b;
+  unsigned int **matrix_c;
+  unsigned int matrix_a_id =
+      shmget(IPC_PRIVATE, dimension * dimension * sizeof(unsigned int),
+             IPC_CREAT | 0600);
+  unsigned int matrix_b_id =
+      shmget(IPC_PRIVATE, dimension * dimension * sizeof(unsigned int),
+             IPC_CREAT | 0600);
+  unsigned int matrix_c_id =
+      shmget(IPC_PRIVATE, dimension * dimension * sizeof(unsigned int),
+             IPC_CREAT | 0600);
+  matrix_a_data = (unsigned int *)shmat(matrix_a_id, nullptr, 0);
+  matrix_b_data = (unsigned int *)shmat(matrix_b_id, nullptr, 0);
+  matrix_c_data = (unsigned int *)shmat(matrix_c_id, nullptr, 0);
+  matrix_a =
+      (unsigned int **)malloc(dimension * dimension * sizeof(unsigned int));
+  matrix_b =
+      (unsigned int **)malloc(dimension * dimension * sizeof(unsigned int));
+  matrix_c =
+      (unsigned int **)malloc(dimension * dimension * sizeof(unsigned int));
   for (int x = 0; x < dimension; x++) {
     matrix_a[x] = matrix_a_data + x * dimension;
     matrix_b[x] = matrix_b_data + x * dimension;
@@ -52,8 +58,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  for (int fork_counter = 1; fork_counter <= 6; fork_counter++) {
-    int checksum = 0;
+  for (int fork_counter = 1; fork_counter <= 16; fork_counter++) {
+    unsigned int checksum = 0;
 
     // turn matrix c to zero
     for (int x = 0; x < dimension; x++)
