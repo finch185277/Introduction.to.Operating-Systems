@@ -17,7 +17,9 @@ public GitHub repository or a public web page.
 
 int main(int argc, char *argv[]) {
   int dimension;
+  std::cout << "Input the matrix dimension: ";
   std::cin >> dimension;
+  std::cout << '\n';
 
   // using shared memory to create three matrix
   unsigned int *matrix_a;
@@ -88,11 +90,14 @@ int main(int argc, char *argv[]) {
 
     // end of count the time
     gettimeofday(&end, 0);
-    int sec = end.tv_sec - start.tv_sec;
-    int usec = end.tv_usec - start.tv_usec;
-    std::cout << "Multiply matrices using " << fork_counter << " process"
-              << '\n';
-    std::cout << "elapsed " << sec * 1000 + (usec / 1000.0)
+    double sec = end.tv_sec - start.tv_sec;
+    double usec = end.tv_usec - start.tv_usec;
+    std::cout << "Multiply matrices using " << fork_counter;
+    if (fork_counter == 1)
+      std::cout << " process" << '\n';
+    else
+      std::cout << " processes" << '\n';
+    std::cout << "Elapsed time: " << sec + (usec / 1000000)
               << " sec, Checksum: " << checksum << '\n';
   }
 
