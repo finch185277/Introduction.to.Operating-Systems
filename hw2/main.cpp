@@ -20,12 +20,9 @@ int main(int argc, char *argv[]) {
   std::cin >> dimension;
 
   // using shared memory to create three matrix
-  unsigned int *matrix_a_data;
-  unsigned int *matrix_b_data;
-  unsigned int *matrix_c_data;
-  unsigned int **matrix_a;
-  unsigned int **matrix_b;
-  unsigned int **matrix_c;
+  unsigned int *matrix_a;
+  unsigned int *matrix_b;
+  unsigned int *matrix_c;
   unsigned int matrix_a_id =
       shmget(IPC_PRIVATE, dimension * dimension * sizeof(unsigned int),
              IPC_CREAT | 0600);
@@ -35,26 +32,15 @@ int main(int argc, char *argv[]) {
   unsigned int matrix_c_id =
       shmget(IPC_PRIVATE, dimension * dimension * sizeof(unsigned int),
              IPC_CREAT | 0600);
-  matrix_a_data = (unsigned int *)shmat(matrix_a_id, nullptr, 0);
-  matrix_b_data = (unsigned int *)shmat(matrix_b_id, nullptr, 0);
-  matrix_c_data = (unsigned int *)shmat(matrix_c_id, nullptr, 0);
-  matrix_a =
-      (unsigned int **)malloc(dimension * dimension * sizeof(unsigned int));
-  matrix_b =
-      (unsigned int **)malloc(dimension * dimension * sizeof(unsigned int));
-  matrix_c =
-      (unsigned int **)malloc(dimension * dimension * sizeof(unsigned int));
-  for (int x = 0; x < dimension; x++) {
-    matrix_a[x] = matrix_a_data + x * dimension;
-    matrix_b[x] = matrix_b_data + x * dimension;
-    matrix_c[x] = matrix_c_data + x * dimension;
-  }
+  matrix_a = (unsigned int *)shmat(matrix_a_id, nullptr, 0);
+  matrix_b = (unsigned int *)shmat(matrix_b_id, nullptr, 0);
+  matrix_c = (unsigned int *)shmat(matrix_c_id, nullptr, 0);
 
   // create raw matrix
   for (int x = 0; x < dimension; x++) {
     for (int y = 0; y < dimension; y++) {
-      matrix_a[x][y] = x * dimension + y;
-      matrix_b[x][y] = x * dimension + y;
+      matrix_a[x * dimension + y] = x * dimension + y;
+      matrix_b[x * dimension + y] = x * dimension + y;
     }
   }
 
@@ -64,7 +50,7 @@ int main(int argc, char *argv[]) {
     // turn matrix c to zero
     for (int x = 0; x < dimension; x++)
       for (int y = 0; y < dimension; y++)
-        matrix_c[x][y] = 0;
+        matrix_c[x * dimension + y] = 0;
 
     // start of count the time
     struct timeval start, end;
@@ -78,7 +64,8 @@ int main(int argc, char *argv[]) {
           for (int y = 0; y < dimension; y++) {
             if ((x * dimension + y) % fork_counter == cur_p) {
               for (int z = 0; z < dimension; z++) {
-                matrix_c[x][y] += matrix_a[x][z] * matrix_b[z][y];
+                matrix_c[x * dimension + y] +=
+                    matrix_a[x * dimension + z] * matrix_b[z * dimension + y];
               }
             }
           }
@@ -95,7 +82,7 @@ int main(int argc, char *argv[]) {
     // calculate the checksum
     for (int x = 0; x < dimension; x++) {
       for (int y = 0; y < dimension; y++) {
-        checksum += matrix_c[x][y];
+        checksum += matrix_c[x * dimension + y];
       }
     }
 
@@ -110,9 +97,6 @@ int main(int argc, char *argv[]) {
   }
 
   // detach and detroy the shared memory
-  free(matrix_a);
-  free(matrix_b);
-  free(matrix_c);
   shmdt(matrix_a);
   shmdt(matrix_b);
   shmdt(matrix_c);
