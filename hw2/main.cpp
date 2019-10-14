@@ -55,6 +55,11 @@ int main(int argc, char *argv[]) {
   for (int fork_counter = 1; fork_counter <= 6; fork_counter++) {
     int checksum = 0;
 
+    // turn matrix c to zero
+    for (int x = 0; x < dimension; x++)
+      for (int y = 0; y < dimension; y++)
+        matrix_c[x][y] = 0;
+
     // start of count the time
     struct timeval start, end;
     gettimeofday(&start, 0);
@@ -66,8 +71,9 @@ int main(int argc, char *argv[]) {
         for (int x = 0; x < dimension; x++) {
           for (int y = 0; y < dimension; y++) {
             if ((x * dimension + y) % fork_counter == cur_p) {
-              for (int z = 0; z < dimension; z++)
-                matrix_c[x][y] = matrix_a[x][z] * matrix_b[z][y];
+              for (int z = 0; z < dimension; z++) {
+                matrix_c[x][y] += matrix_a[x][z] * matrix_b[z][y];
+              }
             }
           }
         }
