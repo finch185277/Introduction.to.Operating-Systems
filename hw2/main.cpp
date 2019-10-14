@@ -8,32 +8,52 @@ supposed to be posted to a public server, such as a
 public GitHub repository or a public web page.
 */
 
-#include <cstring>
 #include <iostream>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <vector>
 
 int main(int argc, char *argv[]) {
-  // create the shared memory
-  int shmid = shmget(IPC_PRIVATE, 1024, IPC_CREAT | 0600);
-  int *checksum = (int *)shmat(shmid, (void *)0, 0);
-
   int dimension;
   std::cin >> dimension;
 
+  // create the shared memory
+  int *matrix_a_data;
+  int *matrix_b_data;
+  int *matrix_c_data;
+  int **matrix_a;
+  int **matrix_b;
+  int **matrix_c;
+  int matrix_a_id =
+      shmget(IPC_PRIVATE, sizeof(int[dimension]), IPC_CREAT | 0600);
+  int matrix_b_id =
+      shmget(IPC_PRIVATE, sizeof(int[dimension]), IPC_CREAT | 0600);
+  int matrix_c_id =
+      shmget(IPC_PRIVATE, sizeof(int[dimension]), IPC_CREAT | 0600);
+  matrix_a_data = (int *)shmat(matrix_a_id, nullptr, 0);
+  matrix_b_data = (int *)shmat(matrix_b_id, nullptr, 0);
+  matrix_c_data = (int *)shmat(matrix_c_id, nullptr, 0);
+  matrix_a = (int **)malloc(sizeof(int[dimension][dimension]));
+  matrix_b = (int **)malloc(sizeof(int[dimension][dimension]));
+  matrix_c = (int **)malloc(sizeof(int[dimension][dimension]));
+  for (int x = 0; x < dimension; x++) {
+    matrix_a[x] = matrix_a_data + x * dimension;
+    matrix_b[x] = matrix_b_data + x * dimension;
+    matrix_c[x] = matrix_c_data + x * dimension;
+  }
+
   // create raw matrix
-  std::vector<std::vector<int>> raw(dimension, std::vector<int>(dimension));
-  for (int x = 0; x < dimension; x++)
-    for (int y = 0; y < dimension; y++)
-      raw.at(x).at(y) = x * dimension + y;
+  for (int x = 0; x < dimension; x++) {
+    for (int y = 0; y < dimension; y++) {
+      matrix_a[x][y] = x * dimension + y;
+      matrix_b[x][y] = x * dimension + y;
+    }
+  }
 
   for (int fork_counter = 1; fork_counter <= 6; fork_counter++) {
-    std::vector<std::vector<int>> final(dimension, std::vector<int>(dimension));
-    *checksum = 0;
+    int checksum = 0;
 
     // start of count the time
     struct timeval start, end;
@@ -46,7 +66,7 @@ int main(int argc, char *argv[]) {
           for (int y = 0; y < dimension; y++) {
             if ((x * dimension + y) % fork_counter == cur_p) {
               for (int z = 0; z < dimension; z++)
-                final.at(x).at(y) = raw.at(x).at(z) * raw.at(z).at(y);
+                matrix_c[x][y] = matrix_a[x][z] * matrix_b[z][y];
             }
           }
         }
@@ -59,7 +79,7 @@ int main(int argc, char *argv[]) {
 
     for (int x = 0; x < dimension; x++) {
       for (int y = 0; y < dimension; y++) {
-        *checksum += final.at(x).at(y);
+        checksum += matrix_c[x][y];
       }
     }
 
@@ -70,12 +90,15 @@ int main(int argc, char *argv[]) {
     std::cout << "Multiply matrices using " << fork_counter << " process"
               << '\n';
     std::cout << "elapsed " << sec * 1000 + (usec / 1000.0)
-              << " sec, Checksum: " << *checksum << '\n';
+              << " sec, Checksum: " << checksum << '\n';
   }
 
   // detach and detroy the shared memory
-  shmdt(checksum);
-  shmctl(shmid, IPC_RMID, nullptr);
-
+  shmdt(matrix_a);
+  shmdt(matrix_b);
+  shmdt(matrix_c);
+  shmctl(matrix_a_id, IPC_RMID, nullptr);
+  shmctl(matrix_b_id, IPC_RMID, nullptr);
+  shmctl(matrix_c_id, IPC_RMID, nullptr);
   return 0;
 }
