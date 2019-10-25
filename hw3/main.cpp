@@ -6,10 +6,17 @@
 #include <vector>
 
 void print_nums(std::vector<int> nums, int cnt) {
-  for (int i = 0; i < cnt; i++) {
+  for (int i = 0; i < cnt; i++)
     std::cout << nums.at(i) << ' ';
-  }
   std::cout << '\n';
+}
+
+void bubble_sort(std::vector<int> &nums, int lb, int ub) {
+  int cnt = nums.size();
+  for (int i = ub - 1; i > 0; i--)
+    for (int j = lb; j < i; j++)
+      if (nums.at(j) > nums.at(j + 1))
+        std::swap(nums.at(j), nums.at(j + 1));
 }
 
 int main(int argc, char **argv) {
@@ -33,6 +40,8 @@ int main(int argc, char **argv) {
     while (ss >> num)
       nums.at(idx++) = num;
 
+    print_nums(nums, cnt);
+    bubble_sort(nums, 0, nums.size());
     print_nums(nums, cnt);
 
   } else { // if file not exist
