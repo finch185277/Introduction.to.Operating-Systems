@@ -20,8 +20,10 @@ void bubble_sort(std::vector<int> &nums, int lb, int ub) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2)
+  if (argc != 2) {
     std::cout << "Usage: " << argv[0] << " <file name>" << '\n';
+    return -1;
+  }
 
   std::ifstream infile(argv[1]); // open the file
   if (infile.good()) {           // if file exist
