@@ -1,5 +1,5 @@
 CXX = clang++
-ARG = -O3 -std=c++17 -g -o
+ARG = -O3 -std=c++17 -lpthread -g -o
 RAW_FILES = main.cpp
 EXEC_FILE = main
 INPUT_FILE = input
