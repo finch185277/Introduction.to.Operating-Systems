@@ -1,14 +1,31 @@
+#include <fcntl.h>
 #include <fstream>
 #include <iostream>
 #include <pthread.h>
 #include <semaphore.h>
 #include <sstream>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
-void print_nums(std::vector<int> nums, int cnt) {
-  for (int i = 0; i < cnt; i++)
-    std::cout << nums.at(i) << ' ';
-  std::cout << '\n';
+void signal_handler(int sig) {
+  int stat;
+  while (true) {
+    pid_t pid = waitpid(-1, &stat, WNOHANG);
+  }
+  return;
+}
+
+void print_nums(std::ofstream &fst, std::vector<int> nums, int cnt) {
+  bool is_first = true;
+  for (int i = 0; i < cnt; i++) {
+    if (is_first) {
+      fst << nums.at(i);
+      is_first = false;
+    } else {
+      fst << ' ' << nums.at(i);
+    }
+  }
 }
 
 void bubble_sort(std::vector<int> &nums, int lb, int ub) {
@@ -42,9 +59,26 @@ int main(int argc, char **argv) {
     while (ss >> num)
       nums.at(idx++) = num;
 
-    print_nums(nums, cnt);
-    bubble_sort(nums, 0, nums.size());
-    print_nums(nums, cnt);
+    signal(SIGCHLD, signal_handler);
+
+    pid_t pid = fork();
+    if (pid > 0) {
+      pid_t thread_pid = fork();
+      if (thread_pid > 0) {
+        std::ofstream outfile("output1.txt");
+        bubble_sort(nums, 0, nums.size());
+        print_nums(outfile, nums, cnt);
+      } else if (thread_pid == 0) {
+        std::ofstream outfile("output2.txt");
+        bubble_sort(nums, 0, nums.size());
+        print_nums(outfile, nums, cnt);
+      } else {
+        std::cout << "Fork error" << '\n';
+      }
+    } else if (pid == 0) {
+    } else {
+      std::cout << "Fork error" << '\n';
+    }
 
   } else { // if file not exist
     std::cout << "File: " << argv[1] << " does not exist!" << std::endl;
