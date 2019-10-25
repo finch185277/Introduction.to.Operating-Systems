@@ -4,17 +4,10 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <sstream>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
-
-void signal_handler(int sig) {
-  int stat;
-  while (true) {
-    pid_t pid = waitpid(-1, &stat, WNOHANG);
-  }
-  return;
-}
 
 void print_nums(std::ofstream &fst, std::vector<int> nums, int cnt) {
   bool is_first = true;
@@ -59,23 +52,51 @@ int main(int argc, char **argv) {
     while (ss >> num)
       nums.at(idx++) = num;
 
-    signal(SIGCHLD, signal_handler);
-
     pid_t pid = fork();
     if (pid > 0) {
       pid_t thread_pid = fork();
       if (thread_pid > 0) {
+        // start of count the time
+        struct timeval start, end;
+        gettimeofday(&start, 0);
+
         std::ofstream outfile("output1.txt");
         bubble_sort(nums, 0, nums.size());
         print_nums(outfile, nums, cnt);
+        outfile.close();
+
+        // end of count the time
+        gettimeofday(&end, 0);
+        double sec = end.tv_sec - start.tv_sec;
+        double usec = end.tv_usec - start.tv_usec;
+        std::cout << "Multiple thread time: " << sec * 1000 + (usec / 1000)
+                  << " ms" << '\n';
+
+        exit(0);
       } else if (thread_pid == 0) {
+        // start of count the time
+        struct timeval start, end;
+        gettimeofday(&start, 0);
+
         std::ofstream outfile("output2.txt");
         bubble_sort(nums, 0, nums.size());
         print_nums(outfile, nums, cnt);
+        outfile.close();
+
+        // end of count the time
+        gettimeofday(&end, 0);
+        double sec = end.tv_sec - start.tv_sec;
+        double usec = end.tv_usec - start.tv_usec;
+        std::cout << "Single thread time: " << sec * 1000 + (usec / 1000)
+                  << " ms" << '\n';
+
+        exit(0);
       } else {
         std::cout << "Fork error" << '\n';
       }
     } else if (pid == 0) {
+      wait(nullptr);
+      wait(nullptr);
     } else {
       std::cout << "Fork error" << '\n';
     }
