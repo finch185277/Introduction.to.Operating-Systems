@@ -9,8 +9,14 @@
 #include <unistd.h>
 #include <vector>
 
-// ST: single thread
 // MT: multiple thread
+// ST: single thread
+
+struct MT_args {
+  std::vector<int> nums;
+  int lb;
+  int hb;
+};
 
 struct ST_args {
   std::vector<int> nums;
@@ -39,6 +45,38 @@ void bubble_sort(std::vector<int> &nums, int lb, int ub) {
         std::swap(nums.at(j), nums.at(j + 1));
 }
 
+void MT_sort_l0(std::vector<int> &nums, int lb, int ub) {
+  bubble_sort(nums, 0, nums.size() - 1);
+}
+
+void MT_sort_l1() { ; }
+
+void MT_sort_l2() { ; }
+
+void MT_sort_l3() { ; }
+
+void *MT_helper(void *void_args) {
+  MT_args *args = (MT_args *)void_args;
+
+  // start of count the time
+  struct timeval start, end;
+  gettimeofday(&start, 0);
+
+  MT_sort_l0(args->nums, args->lb, args->hb);
+
+  std::ofstream outfile("output1.txt");
+  print_nums(outfile, args->nums);
+  outfile.close();
+
+  // end of count the time
+  gettimeofday(&end, 0);
+  double sec = end.tv_sec - start.tv_sec;
+  double usec = end.tv_usec - start.tv_usec;
+  std::cout << "MT time: " << sec * 1000 + (usec / 1000) << " ms" << '\n';
+
+  pthread_exit(nullptr);
+}
+
 void ST_merge(std::vector<int> &nums, int lb, int mid, int ub) {
   int left_idx = 0, right_idx = 0;
   std::vector<int> left(nums.begin() + lb, nums.begin() + mid + 1),
@@ -56,11 +94,11 @@ void ST_merge(std::vector<int> &nums, int lb, int mid, int ub) {
   }
 }
 
-void ST_merge_sort(std::vector<int> &nums, int lb, int ub, int level) {
+void ST_sort(std::vector<int> &nums, int lb, int ub, int level) {
   if (level < 3 && lb < ub) {
     int mid = (lb + ub) / 2;
-    ST_merge_sort(nums, lb, mid, level + 1);
-    ST_merge_sort(nums, mid + 1, ub, level + 1);
+    ST_sort(nums, lb, mid, level + 1);
+    ST_sort(nums, mid + 1, ub, level + 1);
     ST_merge(nums, lb, mid, ub);
   } else {
     bubble_sort(nums, lb, ub);
@@ -74,15 +112,13 @@ void *ST_helper(void *void_args) {
   struct timeval start, end;
   gettimeofday(&start, 0);
 
-  std::cout << "mid of single thread helper" << '\n';
-  ST_merge_sort(args->nums, args->lb, args->hb, args->level);
+  ST_sort(args->nums, args->lb, args->hb, args->level);
 
   // end of count the time
   gettimeofday(&end, 0);
   double sec = end.tv_sec - start.tv_sec;
   double usec = end.tv_usec - start.tv_usec;
-  std::cout << "Single thread time: " << sec * 1000 + (usec / 1000) << " ms"
-            << '\n';
+  std::cout << "ST time: " << sec * 1000 + (usec / 1000) << " ms" << '\n';
 
   std::ofstream outfile("output2.txt");
   print_nums(outfile, args->nums);
@@ -114,40 +150,40 @@ int main(int argc, char **argv) {
     while (ss >> num)
       nums.at(idx++) = num;
 
-    pid_t pid = fork();
-    if (pid > 0) {
-      // start of count the time
-      struct timeval start, end;
-      gettimeofday(&start, 0);
+    // build all thread id
+    std::vector<pthread_t> tid(16);
 
-      std::ofstream outfile("output1.txt");
-      bubble_sort(nums, 0, nums.size() - 1);
-      print_nums(outfile, nums);
-      outfile.close();
+    // Multiple thread
+    MT_args mt_args;
+    mt_args.nums = nums;
+    mt_args.lb = 0;
+    mt_args.hb = nums.size() - 1;
+    pthread_create(&tid.at(1), nullptr, MT_helper, &mt_args);
+    pthread_join(tid.at(1), nullptr);
 
-      // end of count the time
-      gettimeofday(&end, 0);
-      double sec = end.tv_sec - start.tv_sec;
-      double usec = end.tv_usec - start.tv_usec;
-      std::cout << "Multiple thread time: " << sec * 1000 + (usec / 1000)
-                << " ms" << '\n';
+    // pthread_create(&tid.at(2), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(3), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(4), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(5), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(6), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(7), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(8), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(9), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(10), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(11), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(12), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(13), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(14), nullptr, ST_helper, &args);
+    // pthread_create(&tid.at(15), nullptr, ST_helper, &args);
 
-      exit(0);
-    } else if (pid == 0) {
-      wait(nullptr);
-      pthread_t st_id;
-      ST_args args;
-      args.nums = nums;
-      args.lb = 0;
-      args.hb = nums.size() - 1;
-      args.level = 0;
-      std::cout << "start of single thread" << '\n';
-      pthread_create(&st_id, nullptr, ST_helper, &args);
-      std::cout << "end of single thread" << '\n';
-      pthread_join(st_id, nullptr);
-    } else {
-      std::cout << "Fork error" << '\n';
-    }
+    // Single thread
+    ST_args st_args;
+    st_args.nums = nums;
+    st_args.lb = 0;
+    st_args.hb = nums.size() - 1;
+    st_args.level = 0;
+    pthread_create(&tid.at(0), nullptr, ST_helper, &st_args);
+    pthread_join(tid.at(0), nullptr);
 
   } else { // if file not exist
     std::cout << "File: " << argv[1] << " does not exist!" << std::endl;
