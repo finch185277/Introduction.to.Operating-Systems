@@ -10,30 +10,13 @@
 #include <vector>
 
 // MT: multiple thread
+sem_t mt;
+sem_t l0_to_l1, l1_to_l0;
+sem_t l1_to_l2, l2_to_l1;
+sem_t l2_to_l3, l3_to_l2;
+
 // ST: single thread
-
-// l0
-sem_t t1_to_t2, t2_to_t1;
-sem_t t1_to_t3, t3_to_t1;
-
-// l1
-sem_t t2_to_t4, t4_to_t2;
-sem_t t2_to_t5, t5_to_t2;
-sem_t t3_to_t6, t6_to_t3;
-sem_t t3_to_t7, t7_to_t3;
-
-// l2
-sem_t t4_to_t8, t8_to_t4;
-sem_t t4_to_t9, t9_to_t4;
-sem_t t5_to_t10, t10_to_t5;
-sem_t t5_to_t11, t11_to_t5;
-sem_t t6_to_t12, t12_to_t6;
-sem_t t6_to_t13, t13_to_t6;
-sem_t t7_to_t14, t14_to_t7;
-sem_t t7_to_t15, t15_to_t7;
-
-// st
-sem_t t0;
+sem_t st;
 
 struct MT_args {
   std::vector<int> nums;
@@ -68,82 +51,71 @@ void bubble_sort(std::vector<int> &nums, int lb, int ub) {
         std::swap(nums.at(j), nums.at(j + 1));
 }
 
-void MT_sort_l0(std::vector<int> &nums, int lb, int ub) {
-  bubble_sort(nums, 0, nums.size() - 1);
-
-  sem_post(&t1_to_t2);
-  sem_post(&t1_to_t3);
-
-  sem_wait(&t2_to_t1);
-  sem_wait(&t3_to_t1);
-}
-
-void *MT_sort_l1(void *void_args) {
-  sem_wait(&t1_to_t2);
-  std::cout << "t1_to_t2" << '\n';
-  sem_post(&t2_to_t1);
-
-  sem_wait(&t1_to_t3);
-  std::cout << "t1_to_t3" << '\n';
-  sem_post(&t3_to_t1);
-
-  sem_post(&t2_to_t4);
-  sem_post(&t2_to_t5);
-
-  sem_wait(&t4_to_t2);
-  sem_wait(&t5_to_t2);
-
-  pthread_exit(nullptr);
-}
-
-void *MT_sort_l2(void *void_args) {
-  sem_wait(&t2_to_t4);
-  std::cout << "t2_to_t4" << '\n';
-  sem_post(&t4_to_t2);
-
-  sem_wait(&t2_to_t5);
-  std::cout << "t2_to_t5" << '\n';
-  sem_post(&t5_to_t2);
-
-  sem_post(&t4_to_t8);
-  sem_post(&t4_to_t9);
-
-  sem_wait(&t8_to_t4);
-  sem_wait(&t9_to_t4);
-
-  pthread_exit(nullptr);
-}
-
-void *MT_sort_l3(void *void_args) {
-  sem_wait(&t4_to_t8);
-  std::cout << "t4_to_t8" << '\n';
-  sem_post(&t8_to_t4);
-
-  sem_wait(&t4_to_t9);
-  std::cout << "t4_to_t9" << '\n';
-  sem_post(&t9_to_t4);
-
-  pthread_exit(nullptr);
-}
-
-void *MT_helper(void *void_args) {
+void *MT_sort_l0(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
   // start of count the time
   struct timeval start, end;
   gettimeofday(&start, 0);
 
-  MT_sort_l0(args->nums, args->lb, args->hb);
+  bubble_sort(args->nums, 0, args->nums.size() - 1);
 
-  std::ofstream outfile("output1.txt");
-  print_nums(outfile, args->nums);
-  outfile.close();
+  sem_post(&l0_to_l1);
+  sem_post(&l0_to_l1);
+
+  sem_wait(&l1_to_l0);
 
   // end of count the time
   gettimeofday(&end, 0);
   double sec = end.tv_sec - start.tv_sec;
   double usec = end.tv_usec - start.tv_usec;
   std::cout << "MT time: " << sec * 1000 + (usec / 1000) << " ms" << '\n';
+
+  std::ofstream outfile("output1.txt");
+  print_nums(outfile, args->nums);
+  outfile.close();
+
+  sem_post(&mt);
+
+  pthread_exit(nullptr);
+}
+
+void *MT_sort_l1(void *void_args) {
+  MT_args *args = (MT_args *)void_args;
+
+  sem_wait(&l0_to_l1);
+  std::cout << "l0_to_l1" << '\n';
+  sem_post(&l1_to_l0);
+
+  sem_post(&l1_to_l2);
+  sem_post(&l1_to_l2);
+
+  sem_wait(&l2_to_l1);
+
+  pthread_exit(nullptr);
+}
+
+void *MT_sort_l2(void *void_args) {
+  MT_args *args = (MT_args *)void_args;
+
+  sem_wait(&l1_to_l2);
+  std::cout << "l1_to_l2" << '\n';
+  sem_post(&l2_to_l1);
+
+  sem_post(&l2_to_l3);
+  sem_post(&l2_to_l3);
+
+  sem_wait(&l3_to_l2);
+
+  pthread_exit(nullptr);
+}
+
+void *MT_sort_l3(void *void_args) {
+  MT_args *args = (MT_args *)void_args;
+
+  sem_wait(&l2_to_l3);
+  std::cout << "l2_to_l3" << '\n';
+  sem_post(&l3_to_l2);
 
   pthread_exit(nullptr);
 }
@@ -183,6 +155,7 @@ void *ST_helper(void *void_args) {
   struct timeval start, end;
   gettimeofday(&start, 0);
 
+  sleep(1);
   ST_sort(args->nums, args->lb, args->hb, args->level);
 
   // end of count the time
@@ -195,7 +168,7 @@ void *ST_helper(void *void_args) {
   print_nums(outfile, args->nums);
   outfile.close();
 
-  sem_post(&t0);
+  sem_post(&st);
 
   pthread_exit(nullptr);
 }
@@ -231,7 +204,7 @@ int main(int argc, char **argv) {
     mt_args.nums = nums;
     mt_args.lb = 0;
     mt_args.hb = nums.size() - 1;
-    pthread_create(&tid.at(1), nullptr, MT_helper, &mt_args);
+    pthread_create(&tid.at(1), nullptr, MT_sort_l0, &mt_args);
 
     pthread_create(&tid.at(2), nullptr, MT_sort_l1, &mt_args);
     pthread_create(&tid.at(3), nullptr, MT_sort_l1, &mt_args);
@@ -258,7 +231,8 @@ int main(int argc, char **argv) {
     st_args.level = 0;
     pthread_create(&tid.at(0), nullptr, ST_helper, &st_args);
 
-    sem_wait(&t0);
+    sem_wait(&mt);
+    sem_wait(&st);
     std::cout << "end of prog" << '\n';
 
   } else { // if file not exist
