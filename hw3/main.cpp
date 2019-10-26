@@ -12,6 +12,29 @@
 // MT: multiple thread
 // ST: single thread
 
+// l0
+sem_t t1_to_t2, t2_to_t1;
+sem_t t1_to_t3, t3_to_t1;
+
+// l1
+sem_t t2_to_t4, t4_to_t2;
+sem_t t2_to_t5, t5_to_t2;
+sem_t t3_to_t6, t6_to_t3;
+sem_t t3_to_t7, t7_to_t3;
+
+// l2
+sem_t t4_to_t8, t8_to_t4;
+sem_t t4_to_t9, t9_to_t4;
+sem_t t5_to_t10, t10_to_t5;
+sem_t t5_to_t11, t11_to_t5;
+sem_t t6_to_t12, t12_to_t6;
+sem_t t6_to_t13, t13_to_t6;
+sem_t t7_to_t14, t14_to_t7;
+sem_t t7_to_t15, t15_to_t7;
+
+// st
+sem_t t0;
+
 struct MT_args {
   std::vector<int> nums;
   int lb;
@@ -47,13 +70,61 @@ void bubble_sort(std::vector<int> &nums, int lb, int ub) {
 
 void MT_sort_l0(std::vector<int> &nums, int lb, int ub) {
   bubble_sort(nums, 0, nums.size() - 1);
+
+  sem_post(&t1_to_t2);
+  sem_post(&t1_to_t3);
+
+  sem_wait(&t2_to_t1);
+  sem_wait(&t3_to_t1);
 }
 
-void MT_sort_l1() { ; }
+void *MT_sort_l1(void *void_args) {
+  sem_wait(&t1_to_t2);
+  std::cout << "t1_to_t2" << '\n';
+  sem_post(&t2_to_t1);
 
-void MT_sort_l2() { ; }
+  sem_wait(&t1_to_t3);
+  std::cout << "t1_to_t3" << '\n';
+  sem_post(&t3_to_t1);
 
-void MT_sort_l3() { ; }
+  sem_post(&t2_to_t4);
+  sem_post(&t2_to_t5);
+
+  sem_wait(&t4_to_t2);
+  sem_wait(&t5_to_t2);
+
+  pthread_exit(nullptr);
+}
+
+void *MT_sort_l2(void *void_args) {
+  sem_wait(&t2_to_t4);
+  std::cout << "t2_to_t4" << '\n';
+  sem_post(&t4_to_t2);
+
+  sem_wait(&t2_to_t5);
+  std::cout << "t2_to_t5" << '\n';
+  sem_post(&t5_to_t2);
+
+  sem_post(&t4_to_t8);
+  sem_post(&t4_to_t9);
+
+  sem_wait(&t8_to_t4);
+  sem_wait(&t9_to_t4);
+
+  pthread_exit(nullptr);
+}
+
+void *MT_sort_l3(void *void_args) {
+  sem_wait(&t4_to_t8);
+  std::cout << "t4_to_t8" << '\n';
+  sem_post(&t8_to_t4);
+
+  sem_wait(&t4_to_t9);
+  std::cout << "t4_to_t9" << '\n';
+  sem_post(&t9_to_t4);
+
+  pthread_exit(nullptr);
+}
 
 void *MT_helper(void *void_args) {
   MT_args *args = (MT_args *)void_args;
@@ -124,6 +195,8 @@ void *ST_helper(void *void_args) {
   print_nums(outfile, args->nums);
   outfile.close();
 
+  sem_post(&t0);
+
   pthread_exit(nullptr);
 }
 
@@ -159,22 +232,23 @@ int main(int argc, char **argv) {
     mt_args.lb = 0;
     mt_args.hb = nums.size() - 1;
     pthread_create(&tid.at(1), nullptr, MT_helper, &mt_args);
-    pthread_join(tid.at(1), nullptr);
 
-    // pthread_create(&tid.at(2), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(3), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(4), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(5), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(6), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(7), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(8), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(9), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(10), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(11), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(12), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(13), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(14), nullptr, ST_helper, &args);
-    // pthread_create(&tid.at(15), nullptr, ST_helper, &args);
+    pthread_create(&tid.at(2), nullptr, MT_sort_l1, &mt_args);
+    pthread_create(&tid.at(3), nullptr, MT_sort_l1, &mt_args);
+
+    pthread_create(&tid.at(4), nullptr, MT_sort_l2, &mt_args);
+    pthread_create(&tid.at(5), nullptr, MT_sort_l2, &mt_args);
+    pthread_create(&tid.at(6), nullptr, MT_sort_l2, &mt_args);
+    pthread_create(&tid.at(7), nullptr, MT_sort_l2, &mt_args);
+
+    pthread_create(&tid.at(8), nullptr, MT_sort_l3, &mt_args);
+    pthread_create(&tid.at(9), nullptr, MT_sort_l3, &mt_args);
+    pthread_create(&tid.at(10), nullptr, MT_sort_l3, &mt_args);
+    pthread_create(&tid.at(11), nullptr, MT_sort_l3, &mt_args);
+    pthread_create(&tid.at(12), nullptr, MT_sort_l3, &mt_args);
+    pthread_create(&tid.at(13), nullptr, MT_sort_l3, &mt_args);
+    pthread_create(&tid.at(14), nullptr, MT_sort_l3, &mt_args);
+    pthread_create(&tid.at(15), nullptr, MT_sort_l3, &mt_args);
 
     // Single thread
     ST_args st_args;
@@ -183,7 +257,9 @@ int main(int argc, char **argv) {
     st_args.hb = nums.size() - 1;
     st_args.level = 0;
     pthread_create(&tid.at(0), nullptr, ST_helper, &st_args);
-    pthread_join(tid.at(0), nullptr);
+
+    sem_wait(&t0);
+    std::cout << "end of prog" << '\n';
 
   } else { // if file not exist
     std::cout << "File: " << argv[1] << " does not exist!" << std::endl;
