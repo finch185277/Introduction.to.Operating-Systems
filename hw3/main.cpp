@@ -9,14 +9,19 @@
 #include <unistd.h>
 #include <vector>
 
-struct thread_args {
+// ST: single thread
+// MT: multiple thread
+
+struct ST_args {
   std::vector<int> nums;
-  int cnt;
+  int lb;
+  int hb;
+  int level;
 };
 
-void print_nums(std::ofstream &fst, std::vector<int> nums, int cnt) {
+void print_nums(std::ofstream &fst, std::vector<int> nums) {
   bool is_first = true;
-  for (int i = 0; i < cnt; i++) {
+  for (int i = 0; i < nums.size(); i++) {
     if (is_first) {
       fst << nums.at(i);
       is_first = false;
@@ -28,30 +33,30 @@ void print_nums(std::ofstream &fst, std::vector<int> nums, int cnt) {
 
 void bubble_sort(std::vector<int> &nums, int lb, int ub) {
   int cnt = nums.size();
-  for (int i = ub - 1; i > 0; i--)
+  for (int i = ub; i > 0; i--)
     for (int j = lb; j < i; j++)
       if (nums.at(j) > nums.at(j + 1))
         std::swap(nums.at(j), nums.at(j + 1));
 }
 
-void single_thread_merge_sort(std::vector<int> &nums, int cnt) {
-  int base = cnt / 8, ext = cnt % 8;
-  bubble_sort(nums, 0, nums.size());
-  std::cout << "cnt: " << cnt << '\n';
+void ST_merge_sort(std::vector<int> &nums, int lb, int ub, int level) {
+  int base = nums.size() / 8, ext = nums.size() % 8;
+  bubble_sort(nums, lb, ub);
+  std::cout << "nums size: " << nums.size() << '\n';
   std::ofstream outfile("output2.txt");
-  print_nums(outfile, nums, cnt);
+  print_nums(outfile, nums);
   outfile.close();
 }
 
-void *single_thread_helper(void *void_args) {
-  std::cout << "mid of single thread helper" << '\n';
-  thread_args *args = (thread_args *)void_args;
+void *ST_helper(void *void_args) {
+  ST_args *args = (ST_args *)void_args;
 
   // start of count the time
   struct timeval start, end;
   gettimeofday(&start, 0);
 
-  single_thread_merge_sort(args->nums, args->cnt);
+  std::cout << "mid of single thread helper" << '\n';
+  ST_merge_sort(args->nums, args->lb, args->hb, args->level);
 
   // end of count the time
   gettimeofday(&end, 0);
@@ -88,42 +93,35 @@ int main(int argc, char **argv) {
 
     pid_t pid = fork();
     if (pid > 0) {
-      pid_t thread_pid = fork();
-      if (thread_pid > 0) {
-        // start of count the time
-        struct timeval start, end;
-        gettimeofday(&start, 0);
+      // start of count the time
+      struct timeval start, end;
+      gettimeofday(&start, 0);
 
-        std::ofstream outfile("output1.txt");
-        bubble_sort(nums, 0, nums.size());
-        print_nums(outfile, nums, cnt);
-        outfile.close();
+      std::ofstream outfile("output1.txt");
+      bubble_sort(nums, 0, nums.size() - 1);
+      print_nums(outfile, nums);
+      outfile.close();
 
-        // end of count the time
-        gettimeofday(&end, 0);
-        double sec = end.tv_sec - start.tv_sec;
-        double usec = end.tv_usec - start.tv_usec;
-        std::cout << "Multiple thread time: " << sec * 1000 + (usec / 1000)
-                  << " ms" << '\n';
+      // end of count the time
+      gettimeofday(&end, 0);
+      double sec = end.tv_sec - start.tv_sec;
+      double usec = end.tv_usec - start.tv_usec;
+      std::cout << "Multiple thread time: " << sec * 1000 + (usec / 1000)
+                << " ms" << '\n';
 
-        exit(0);
-      } else if (thread_pid == 0) {
-        wait(nullptr);
-        // single thread
-        pthread_t st_id;
-        thread_args args;
-        args.nums = nums;
-        args.cnt = cnt;
-        std::cout << "start of single thread" << '\n';
-        pthread_create(&st_id, nullptr, single_thread_helper, &args);
-        std::cout << "end of single thread" << '\n';
-        pthread_join(st_id, nullptr);
-        exit(0);
-      } else {
-        std::cout << "Fork error" << '\n';
-      }
+      exit(0);
     } else if (pid == 0) {
       wait(nullptr);
+      pthread_t st_id;
+      ST_args args;
+      args.nums = nums;
+      args.lb = 0;
+      args.hb = nums.size() - 1;
+      args.level = 0;
+      std::cout << "start of single thread" << '\n';
+      pthread_create(&st_id, nullptr, ST_helper, &args);
+      std::cout << "end of single thread" << '\n';
+      pthread_join(st_id, nullptr);
     } else {
       std::cout << "Fork error" << '\n';
     }
