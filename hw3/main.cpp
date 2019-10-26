@@ -70,6 +70,7 @@ void *MT_sort_l0(void *void_args) {
   gettimeofday(&end, 0);
   double sec = end.tv_sec - start.tv_sec;
   double usec = end.tv_usec - start.tv_usec;
+  sleep(1);
   std::cout << "MT time: " << sec * 1000 + (usec / 1000) << " ms" << '\n';
 
   std::ofstream outfile("output1.txt");
@@ -77,7 +78,6 @@ void *MT_sort_l0(void *void_args) {
   outfile.close();
 
   sem_post(&mt);
-
   pthread_exit(nullptr);
 }
 
@@ -86,13 +86,13 @@ void *MT_sort_l1(void *void_args) {
 
   sem_wait(&l0_to_l1);
   std::cout << "l0_to_l1" << '\n';
-  sem_post(&l1_to_l0);
 
   sem_post(&l1_to_l2);
   sem_post(&l1_to_l2);
 
   sem_wait(&l2_to_l1);
 
+  sem_post(&l1_to_l0);
   pthread_exit(nullptr);
 }
 
@@ -101,13 +101,13 @@ void *MT_sort_l2(void *void_args) {
 
   sem_wait(&l1_to_l2);
   std::cout << "l1_to_l2" << '\n';
-  sem_post(&l2_to_l1);
 
   sem_post(&l2_to_l3);
   sem_post(&l2_to_l3);
 
   sem_wait(&l3_to_l2);
 
+  sem_post(&l2_to_l1);
   pthread_exit(nullptr);
 }
 
@@ -116,8 +116,8 @@ void *MT_sort_l3(void *void_args) {
 
   sem_wait(&l2_to_l3);
   std::cout << "l2_to_l3" << '\n';
-  sem_post(&l3_to_l2);
 
+  sem_post(&l3_to_l2);
   pthread_exit(nullptr);
 }
 
@@ -156,13 +156,13 @@ void *ST_helper(void *void_args) {
   struct timeval start, end;
   gettimeofday(&start, 0);
 
-  sleep(1);
   ST_sort(args->nums, args->lb, args->hb, args->level);
 
   // end of count the time
   gettimeofday(&end, 0);
   double sec = end.tv_sec - start.tv_sec;
   double usec = end.tv_usec - start.tv_usec;
+  sleep(1);
   std::cout << "ST time: " << sec * 1000 + (usec / 1000) << " ms" << '\n';
 
   std::ofstream outfile("output2.txt");
@@ -170,7 +170,6 @@ void *ST_helper(void *void_args) {
   outfile.close();
 
   sem_post(&st);
-
   pthread_exit(nullptr);
 }
 
