@@ -223,6 +223,8 @@ int main(int argc, char **argv) {
     pthread_create(&tid.at(14), nullptr, MT_sort_l3, &mt_args);
     pthread_create(&tid.at(15), nullptr, MT_sort_l3, &mt_args);
 
+    sem_wait(&mt);
+
     // Single thread
     ST_args st_args;
     st_args.nums = nums;
@@ -231,8 +233,8 @@ int main(int argc, char **argv) {
     st_args.level = 0;
     pthread_create(&tid.at(0), nullptr, ST_helper, &st_args);
 
-    sem_wait(&mt);
     sem_wait(&st);
+
     std::cout << "end of prog" << '\n';
 
   } else { // if file not exist
