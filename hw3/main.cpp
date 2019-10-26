@@ -39,13 +39,32 @@ void bubble_sort(std::vector<int> &nums, int lb, int ub) {
         std::swap(nums.at(j), nums.at(j + 1));
 }
 
+void ST_merge(std::vector<int> &nums, int lb, int mid, int ub) {
+  int left_idx = 0, right_idx = 0;
+  std::vector<int> left(nums.begin() + lb, nums.begin() + mid + 1),
+      right(nums.begin() + mid + 1, nums.begin() + ub + 1);
+
+  left.insert(left.end(), std::numeric_limits<int>::max());
+  right.insert(right.end(), std::numeric_limits<int>::max());
+
+  for (int i = lb; i <= ub; i++) {
+    if (left.at(left_idx) < right.at(right_idx)) {
+      nums.at(i) = left.at(left_idx++);
+    } else {
+      nums.at(i) = right.at(right_idx++);
+    }
+  }
+}
+
 void ST_merge_sort(std::vector<int> &nums, int lb, int ub, int level) {
-  int base = nums.size() / 8, ext = nums.size() % 8;
-  bubble_sort(nums, lb, ub);
-  std::cout << "nums size: " << nums.size() << '\n';
-  std::ofstream outfile("output2.txt");
-  print_nums(outfile, nums);
-  outfile.close();
+  if (level < 3 && lb < ub) {
+    int mid = (lb + ub) / 2;
+    ST_merge_sort(nums, lb, mid, level + 1);
+    ST_merge_sort(nums, mid + 1, ub, level + 1);
+    ST_merge(nums, lb, mid, ub);
+  } else {
+    bubble_sort(nums, lb, ub);
+  }
 }
 
 void *ST_helper(void *void_args) {
@@ -64,6 +83,10 @@ void *ST_helper(void *void_args) {
   double usec = end.tv_usec - start.tv_usec;
   std::cout << "Single thread time: " << sec * 1000 + (usec / 1000) << " ms"
             << '\n';
+
+  std::ofstream outfile("output2.txt");
+  print_nums(outfile, args->nums);
+  outfile.close();
 
   pthread_exit(nullptr);
 }
