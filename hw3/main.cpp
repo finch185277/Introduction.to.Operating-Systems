@@ -111,9 +111,6 @@ void *MT_sort_l0(void *void_args) {
   struct timeval start, end;
   gettimeofday(&start, 0);
 
-  std::cout << "id: " << args->id << '\n';
-  // bubble_sort(args->nums, 0, args->nums->size() - 1);
-
   sem_post(&mt_sem_down.at(args->id * 2));
   sem_post(&mt_sem_down.at(args->id * 2 + 1));
 
@@ -126,7 +123,6 @@ void *MT_sort_l0(void *void_args) {
   gettimeofday(&end, 0);
   double sec = end.tv_sec - start.tv_sec;
   double usec = end.tv_usec - start.tv_usec;
-  sleep(1);
   std::cout << "MT time: " << sec * 1000 + (usec / 1000) << " ms" << '\n';
 
   std::ofstream outfile("output1.txt");
@@ -141,7 +137,6 @@ void *MT_sort_l1(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
   sem_wait(&mt_sem_down.at(args->id));
-  std::cout << "id: " << args->id << " l0_to_l1" << '\n';
 
   sem_post(&mt_sem_down.at(args->id * 2));
   sem_post(&mt_sem_down.at(args->id * 2 + 1));
@@ -159,7 +154,6 @@ void *MT_sort_l2(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
   sem_wait(&mt_sem_down.at(args->id));
-  std::cout << "id: " << args->id << " l1_to_l2" << '\n';
 
   sem_post(&mt_sem_down.at(args->id * 2));
   sem_post(&mt_sem_down.at(args->id * 2 + 1));
@@ -177,7 +171,6 @@ void *MT_sort_l3(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
   sem_wait(&mt_sem_down.at(args->id));
-  std::cout << "id: " << args->id << " l2_to_l3" << '\n';
 
   bubble_sort(args->nums, args->lb, args->hb);
 
@@ -252,8 +245,8 @@ int main(int argc, char **argv) {
 
     mt_args.at(1).nums = &mt_nums;
     mt_args.at(1).lb = 0;
-    mt_args.at(1).mid = (cnt - 1) / 2;
     mt_args.at(1).hb = cnt - 1;
+    mt_args.at(1).mid = (mt_args.at(1).lb + mt_args.at(1).hb) / 2;
     mt_args.at(1).id = 1;
 
     for (int i = 2; i <= 15; i++) {
@@ -294,8 +287,6 @@ int main(int argc, char **argv) {
     pthread_create(&tid.at(0), nullptr, ST_helper, &st_args);
 
     sem_wait(&st);
-
-    std::cout << "end of prog" << '\n';
 
   } else { // if file not exist
     std::cout << "File: " << argv[1] << " does not exist!" << std::endl;
