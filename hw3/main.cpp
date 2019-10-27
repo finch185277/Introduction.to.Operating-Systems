@@ -17,6 +17,7 @@ std::vector<sem_t> mt_sem_down(16);
 struct MT_args {
   std::vector<int> *nums;
   int lb;
+  int mid;
   int hb;
   int id;
 };
@@ -69,6 +70,40 @@ void bubble_sort(std::vector<int> *nums, int lb, int ub) {
         std::swap(nums->at(j), nums->at(j + 1));
 }
 
+void merge(std::vector<int> &nums, int lb, int mid, int ub) {
+  int left_idx = 0, right_idx = 0;
+  std::vector<int> left(nums.begin() + lb, nums.begin() + mid + 1),
+      right(nums.begin() + mid + 1, nums.begin() + ub + 1);
+
+  left.insert(left.end(), std::numeric_limits<int>::max());
+  right.insert(right.end(), std::numeric_limits<int>::max());
+
+  for (int i = lb; i <= ub; i++) {
+    if (left.at(left_idx) < right.at(right_idx)) {
+      nums.at(i) = left.at(left_idx++);
+    } else {
+      nums.at(i) = right.at(right_idx++);
+    }
+  }
+}
+
+void merge(std::vector<int> *nums, int lb, int mid, int ub) {
+  int left_idx = 0, right_idx = 0;
+  std::vector<int> left(nums->begin() + lb, nums->begin() + mid + 1),
+      right(nums->begin() + mid + 1, nums->begin() + ub + 1);
+
+  left.insert(left.end(), std::numeric_limits<int>::max());
+  right.insert(right.end(), std::numeric_limits<int>::max());
+
+  for (int i = lb; i <= ub; i++) {
+    if (left.at(left_idx) < right.at(right_idx)) {
+      nums->at(i) = left.at(left_idx++);
+    } else {
+      nums->at(i) = right.at(right_idx++);
+    }
+  }
+}
+
 void *MT_sort_l0(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
@@ -77,13 +112,15 @@ void *MT_sort_l0(void *void_args) {
   gettimeofday(&start, 0);
 
   std::cout << "id: " << args->id << '\n';
-  bubble_sort(args->nums, 0, args->nums->size() - 1);
+  // bubble_sort(args->nums, 0, args->nums->size() - 1);
 
   sem_post(&mt_sem_down.at(args->id * 2));
   sem_post(&mt_sem_down.at(args->id * 2 + 1));
 
   sem_wait(&mt_sem_up.at(args->id * 2));
   sem_wait(&mt_sem_up.at(args->id * 2 + 1));
+
+  merge(args->nums, args->lb, args->mid, args->hb);
 
   // end of count the time
   gettimeofday(&end, 0);
@@ -112,6 +149,8 @@ void *MT_sort_l1(void *void_args) {
   sem_wait(&mt_sem_up.at(args->id * 2));
   sem_wait(&mt_sem_up.at(args->id * 2 + 1));
 
+  merge(args->nums, args->lb, args->mid, args->hb);
+
   sem_post(&mt_sem_up.at(args->id));
   pthread_exit(nullptr);
 }
@@ -128,6 +167,8 @@ void *MT_sort_l2(void *void_args) {
   sem_wait(&mt_sem_up.at(args->id * 2));
   sem_wait(&mt_sem_up.at(args->id * 2 + 1));
 
+  merge(args->nums, args->lb, args->mid, args->hb);
+
   sem_post(&mt_sem_up.at(args->id));
   pthread_exit(nullptr);
 }
@@ -138,25 +179,10 @@ void *MT_sort_l3(void *void_args) {
   sem_wait(&mt_sem_down.at(args->id));
   std::cout << "id: " << args->id << " l2_to_l3" << '\n';
 
+  bubble_sort(args->nums, args->lb, args->hb);
+
   sem_post(&mt_sem_up.at(args->id));
   pthread_exit(nullptr);
-}
-
-void ST_merge(std::vector<int> &nums, int lb, int mid, int ub) {
-  int left_idx = 0, right_idx = 0;
-  std::vector<int> left(nums.begin() + lb, nums.begin() + mid + 1),
-      right(nums.begin() + mid + 1, nums.begin() + ub + 1);
-
-  left.insert(left.end(), std::numeric_limits<int>::max());
-  right.insert(right.end(), std::numeric_limits<int>::max());
-
-  for (int i = lb; i <= ub; i++) {
-    if (left.at(left_idx) < right.at(right_idx)) {
-      nums.at(i) = left.at(left_idx++);
-    } else {
-      nums.at(i) = right.at(right_idx++);
-    }
-  }
 }
 
 void ST_sort(std::vector<int> &nums, int lb, int ub, int level) {
@@ -164,7 +190,7 @@ void ST_sort(std::vector<int> &nums, int lb, int ub, int level) {
     int mid = (lb + ub) / 2;
     ST_sort(nums, lb, mid, level + 1);
     ST_sort(nums, mid + 1, ub, level + 1);
-    ST_merge(nums, lb, mid, ub);
+    merge(nums, lb, mid, ub);
   } else {
     bubble_sort(nums, lb, ub);
   }
@@ -226,6 +252,7 @@ int main(int argc, char **argv) {
 
     mt_args.at(1).nums = &mt_nums;
     mt_args.at(1).lb = 0;
+    mt_args.at(1).mid = (cnt - 1) / 2;
     mt_args.at(1).hb = cnt - 1;
     mt_args.at(1).id = 1;
 
@@ -233,11 +260,12 @@ int main(int argc, char **argv) {
       mt_args.at(i).nums = &mt_nums;
       if (i % 2) {
         mt_args.at(i).lb = mt_args.at(i / 2).lb;
-        mt_args.at(i).hb = mt_args.at(i / 2).hb / 2;
+        mt_args.at(i).hb = mt_args.at(i / 2).mid;
       } else {
-        mt_args.at(i).lb = mt_args.at(i / 2).hb / 2 + 1;
+        mt_args.at(i).lb = mt_args.at(i / 2).mid + 1;
         mt_args.at(i).hb = mt_args.at(i / 2).hb;
       }
+      mt_args.at(i).mid = (mt_args.at(i).lb + mt_args.at(i).hb) / 2;
       mt_args.at(i).id = i;
 
       sem_init(&mt_sem_up.at(i), 0, 0);
