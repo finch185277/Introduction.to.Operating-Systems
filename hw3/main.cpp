@@ -205,38 +205,23 @@ int main(int argc, char **argv) {
     mt_args.lb = 0;
     mt_args.hb = nums.size() - 1;
 
-    mt_args.id = 1;
     pthread_create(&tid.at(1), nullptr, MT_sort_l0, &mt_args);
 
-    mt_args.id = 2;
     pthread_create(&tid.at(2), nullptr, MT_sort_l1, &mt_args);
-    mt_args.id = 3;
     pthread_create(&tid.at(3), nullptr, MT_sort_l1, &mt_args);
 
-    mt_args.id = 4;
     pthread_create(&tid.at(4), nullptr, MT_sort_l2, &mt_args);
-    mt_args.id = 5;
     pthread_create(&tid.at(5), nullptr, MT_sort_l2, &mt_args);
-    mt_args.id = 6;
     pthread_create(&tid.at(6), nullptr, MT_sort_l2, &mt_args);
-    mt_args.id = 7;
     pthread_create(&tid.at(7), nullptr, MT_sort_l2, &mt_args);
 
-    mt_args.id = 8;
     pthread_create(&tid.at(8), nullptr, MT_sort_l3, &mt_args);
-    mt_args.id = 9;
     pthread_create(&tid.at(9), nullptr, MT_sort_l3, &mt_args);
-    mt_args.id = 10;
     pthread_create(&tid.at(10), nullptr, MT_sort_l3, &mt_args);
-    mt_args.id = 11;
     pthread_create(&tid.at(11), nullptr, MT_sort_l3, &mt_args);
-    mt_args.id = 12;
     pthread_create(&tid.at(12), nullptr, MT_sort_l3, &mt_args);
-    mt_args.id = 13;
     pthread_create(&tid.at(13), nullptr, MT_sort_l3, &mt_args);
-    mt_args.id = 14;
     pthread_create(&tid.at(14), nullptr, MT_sort_l3, &mt_args);
-    mt_args.id = 15;
     pthread_create(&tid.at(15), nullptr, MT_sort_l3, &mt_args);
 
     sem_wait(&mt);
