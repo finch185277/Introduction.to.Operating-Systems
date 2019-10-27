@@ -16,7 +16,7 @@ sem_t l1_to_l2, l2_to_l1;
 sem_t l2_to_l3, l3_to_l2;
 
 struct MT_args {
-  std::vector<int> nums;
+  std::vector<int> *nums;
   int lb;
   int hb;
   int id;
@@ -44,12 +44,30 @@ void print_nums(std::ofstream &fst, std::vector<int> nums) {
   }
 }
 
+void print_nums(std::ofstream &fst, std::vector<int> *nums) {
+  bool is_first = true;
+  for (int i = 0; i < nums->size(); i++) {
+    if (is_first) {
+      fst << nums->at(i);
+      is_first = false;
+    } else {
+      fst << ' ' << nums->at(i);
+    }
+  }
+}
+
 void bubble_sort(std::vector<int> &nums, int lb, int ub) {
-  int cnt = nums.size();
   for (int i = ub; i > 0; i--)
     for (int j = lb; j < i; j++)
       if (nums.at(j) > nums.at(j + 1))
         std::swap(nums.at(j), nums.at(j + 1));
+}
+
+void bubble_sort(std::vector<int> *nums, int lb, int ub) {
+  for (int i = ub; i > 0; i--)
+    for (int j = lb; j < i; j++)
+      if (nums->at(j) > nums->at(j + 1))
+        std::swap(nums->at(j), nums->at(j + 1));
 }
 
 void *MT_sort_l0(void *void_args) {
@@ -59,7 +77,7 @@ void *MT_sort_l0(void *void_args) {
   struct timeval start, end;
   gettimeofday(&start, 0);
 
-  bubble_sort(args->nums, 0, args->nums.size() - 1);
+  bubble_sort(args->nums, 0, args->nums->size() - 1);
 
   sem_post(&l0_to_l1);
   sem_post(&l0_to_l1);
@@ -201,7 +219,8 @@ int main(int argc, char **argv) {
 
     // Multiple thread
     MT_args mt_args;
-    mt_args.nums = nums;
+    std::vector<int> mt_nums(nums.begin(), nums.end());
+    mt_args.nums = &mt_nums;
     mt_args.lb = 0;
     mt_args.hb = nums.size() - 1;
 
