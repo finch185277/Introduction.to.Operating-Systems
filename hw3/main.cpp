@@ -224,10 +224,6 @@ int main(int argc, char **argv) {
     }
 
     // Multiple thread
-    // start of count the time
-    struct timeval mt_start, mt_end;
-    gettimeofday(&mt_start, 0);
-
     std::vector<MT_args> mt_args(16);
     std::vector<int> mt_nums(nums.begin(), nums.end());
 
@@ -261,6 +257,10 @@ int main(int argc, char **argv) {
         pthread_create(&tid.at(i), nullptr, MT_sort_l3, &mt_args.at(i));
     }
 
+    // start of count the time
+    struct timeval mt_start, mt_end;
+    gettimeofday(&mt_start, 0);
+
     sem_post(&sem_down.at(1));
     sem_wait(&sem_up.at(1));
 
@@ -271,16 +271,16 @@ int main(int argc, char **argv) {
     std::cout << "MT: " << mt_sec * 1000 + (mt_usec / 1000) << " ms" << '\n';
 
     // Single thread
-    // start of count the time
-    struct timeval st_start, st_end;
-    gettimeofday(&st_start, 0);
-
     ST_args st_args;
     st_args.nums = nums;
     st_args.lb = 0;
     st_args.hb = cnt - 1;
     st_args.level = 0;
     pthread_create(&tid.at(0), nullptr, ST_helper, &st_args);
+
+    // start of count the time
+    struct timeval st_start, st_end;
+    gettimeofday(&st_start, 0);
 
     sem_post(&sem_down.at(0));
     sem_wait(&sem_up.at(0));
