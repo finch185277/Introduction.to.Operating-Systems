@@ -268,7 +268,7 @@ int main(int argc, char **argv) {
     gettimeofday(&mt_end, 0);
     double mt_sec = mt_end.tv_sec - mt_start.tv_sec;
     double mt_usec = mt_end.tv_usec - mt_start.tv_usec;
-    std::cout << "MT: " << mt_sec * 1000 + (mt_usec / 1000) << " ms" << '\n';
+    std::cout << "MT: " << mt_sec + (mt_usec / 1000000) << " sec" << '\n';
 
     // Single thread
     ST_args st_args;
@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
     gettimeofday(&st_end, 0);
     double st_sec = st_end.tv_sec - st_start.tv_sec;
     double st_usec = st_end.tv_usec - st_start.tv_usec;
-    std::cout << "ST: " << st_sec * 1000 + (st_usec / 1000) << " ms" << '\n';
+    std::cout << "ST: " << st_sec + (st_usec / 1000000) << " sec" << '\n';
 
   } else { // if file not exist
     std::cout << "File: " << argv[1] << " does not exist!" << std::endl;
