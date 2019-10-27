@@ -218,30 +218,36 @@ int main(int argc, char **argv) {
     std::vector<pthread_t> tid(16);
 
     // Multiple thread
-    MT_args mt_args;
+    std::vector<MT_args> mt_args(16);
     std::vector<int> mt_nums(nums.begin(), nums.end());
-    mt_args.nums = &mt_nums;
-    mt_args.lb = 0;
-    mt_args.hb = nums.size() - 1;
 
-    pthread_create(&tid.at(1), nullptr, MT_sort_l0, &mt_args);
+    mt_args.at(1).nums = &mt_nums;
+    mt_args.at(1).lb = 0;
+    mt_args.at(1).hb = cnt - 1;
+    mt_args.at(1).id = 1;
 
-    pthread_create(&tid.at(2), nullptr, MT_sort_l1, &mt_args);
-    pthread_create(&tid.at(3), nullptr, MT_sort_l1, &mt_args);
+    for (int i = 2; i <= 15; i++) {
+      mt_args.at(i).nums = &mt_nums;
+      if (i % 2) {
+        mt_args.at(i).lb = mt_args.at(i / 2).lb;
+        mt_args.at(i).hb = mt_args.at(i / 2).hb / 2;
+      } else {
+        mt_args.at(i).lb = mt_args.at(i / 2).hb / 2 + 1;
+        mt_args.at(i).hb = mt_args.at(i / 2).hb;
+      }
+      mt_args.at(i).id = i;
+    }
 
-    pthread_create(&tid.at(4), nullptr, MT_sort_l2, &mt_args);
-    pthread_create(&tid.at(5), nullptr, MT_sort_l2, &mt_args);
-    pthread_create(&tid.at(6), nullptr, MT_sort_l2, &mt_args);
-    pthread_create(&tid.at(7), nullptr, MT_sort_l2, &mt_args);
-
-    pthread_create(&tid.at(8), nullptr, MT_sort_l3, &mt_args);
-    pthread_create(&tid.at(9), nullptr, MT_sort_l3, &mt_args);
-    pthread_create(&tid.at(10), nullptr, MT_sort_l3, &mt_args);
-    pthread_create(&tid.at(11), nullptr, MT_sort_l3, &mt_args);
-    pthread_create(&tid.at(12), nullptr, MT_sort_l3, &mt_args);
-    pthread_create(&tid.at(13), nullptr, MT_sort_l3, &mt_args);
-    pthread_create(&tid.at(14), nullptr, MT_sort_l3, &mt_args);
-    pthread_create(&tid.at(15), nullptr, MT_sort_l3, &mt_args);
+    for (int i = 1; i <= 15; i++) {
+      if (i == 1)
+        pthread_create(&tid.at(i), nullptr, MT_sort_l0, &mt_args.at(i));
+      else if (i == 2 || i == 3)
+        pthread_create(&tid.at(i), nullptr, MT_sort_l1, &mt_args.at(i));
+      else if (i >= 4 && i <= 7)
+        pthread_create(&tid.at(i), nullptr, MT_sort_l2, &mt_args.at(i));
+      else if (i >= 8 && i <= 15)
+        pthread_create(&tid.at(i), nullptr, MT_sort_l3, &mt_args.at(i));
+    }
 
     sem_wait(&mt);
 
@@ -249,7 +255,7 @@ int main(int argc, char **argv) {
     ST_args st_args;
     st_args.nums = nums;
     st_args.lb = 0;
-    st_args.hb = nums.size() - 1;
+    st_args.hb = cnt - 1;
     st_args.level = 0;
     pthread_create(&tid.at(0), nullptr, ST_helper, &st_args);
 
