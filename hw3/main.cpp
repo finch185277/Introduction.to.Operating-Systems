@@ -107,10 +107,6 @@ void merge(std::vector<int> *nums, int lb, int mid, int ub) {
 void *MT_sort_l0(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
-  // start of count the time
-  struct timeval start, end;
-  gettimeofday(&start, 0);
-
   sem_post(&mt_sem_down.at(args->id * 2));
   sem_post(&mt_sem_down.at(args->id * 2 + 1));
 
@@ -118,12 +114,6 @@ void *MT_sort_l0(void *void_args) {
   sem_wait(&mt_sem_up.at(args->id * 2 + 1));
 
   merge(args->nums, args->lb, args->mid, args->hb);
-
-  // end of count the time
-  gettimeofday(&end, 0);
-  double sec = end.tv_sec - start.tv_sec;
-  double usec = end.tv_usec - start.tv_usec;
-  std::cout << "MT time: " << sec * 1000 + (usec / 1000) << " ms" << '\n';
 
   std::ofstream outfile("output1.txt");
   print_nums(outfile, args->nums);
@@ -192,18 +182,7 @@ void ST_sort(std::vector<int> &nums, int lb, int ub, int level) {
 void *ST_helper(void *void_args) {
   ST_args *args = (ST_args *)void_args;
 
-  // start of count the time
-  struct timeval start, end;
-  gettimeofday(&start, 0);
-
   ST_sort(args->nums, args->lb, args->hb, args->level);
-
-  // end of count the time
-  gettimeofday(&end, 0);
-  double sec = end.tv_sec - start.tv_sec;
-  double usec = end.tv_usec - start.tv_usec;
-  sleep(1);
-  std::cout << "ST time: " << sec * 1000 + (usec / 1000) << " ms" << '\n';
 
   std::ofstream outfile("output2.txt");
   print_nums(outfile, args->nums);
@@ -240,6 +219,10 @@ int main(int argc, char **argv) {
     std::vector<pthread_t> tid(16);
 
     // Multiple thread
+    // start of count the time
+    struct timeval mt_start, mt_end;
+    gettimeofday(&mt_start, 0);
+
     std::vector<MT_args> mt_args(16);
     std::vector<int> mt_nums(nums.begin(), nums.end());
 
@@ -276,9 +259,20 @@ int main(int argc, char **argv) {
         pthread_create(&tid.at(i), nullptr, MT_sort_l3, &mt_args.at(i));
     }
 
+    sem_init(&mt, 0, 0);
     sem_wait(&mt);
 
+    // end of count the time
+    gettimeofday(&mt_end, 0);
+    double mt_sec = mt_end.tv_sec - mt_start.tv_sec;
+    double mt_usec = mt_end.tv_usec - mt_start.tv_usec;
+    std::cout << "MT: " << mt_sec * 1000 + (mt_usec / 1000) << " ms" << '\n';
+
     // Single thread
+    // start of count the time
+    struct timeval st_start, st_end;
+    gettimeofday(&st_start, 0);
+
     ST_args st_args;
     st_args.nums = nums;
     st_args.lb = 0;
@@ -286,7 +280,14 @@ int main(int argc, char **argv) {
     st_args.level = 0;
     pthread_create(&tid.at(0), nullptr, ST_helper, &st_args);
 
+    sem_init(&st, 0, 0);
     sem_wait(&st);
+
+    // end of count the time
+    gettimeofday(&st_end, 0);
+    double st_sec = st_end.tv_sec - st_start.tv_sec;
+    double st_usec = st_end.tv_usec - st_start.tv_usec;
+    std::cout << "ST: " << st_sec * 1000 + (st_usec / 1000) << " ms" << '\n';
 
   } else { // if file not exist
     std::cout << "File: " << argv[1] << " does not exist!" << std::endl;
