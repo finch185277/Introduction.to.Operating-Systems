@@ -11,9 +11,8 @@
 
 // MT: multiple thread
 sem_t mt;
-sem_t l0_to_l1, l1_to_l0;
-sem_t l1_to_l2, l2_to_l1;
-sem_t l2_to_l3, l3_to_l2;
+std::vector<sem_t> mt_sem_up(16);
+std::vector<sem_t> mt_sem_down(16);
 
 struct MT_args {
   std::vector<int> *nums;
@@ -77,12 +76,14 @@ void *MT_sort_l0(void *void_args) {
   struct timeval start, end;
   gettimeofday(&start, 0);
 
+  std::cout << "id: " << args->id << '\n';
   bubble_sort(args->nums, 0, args->nums->size() - 1);
 
-  sem_post(&l0_to_l1);
-  sem_post(&l0_to_l1);
+  sem_post(&mt_sem_down.at(args->id * 2));
+  sem_post(&mt_sem_down.at(args->id * 2 + 1));
 
-  sem_wait(&l1_to_l0);
+  sem_wait(&mt_sem_up.at(args->id * 2));
+  sem_wait(&mt_sem_up.at(args->id * 2 + 1));
 
   // end of count the time
   gettimeofday(&end, 0);
@@ -102,40 +103,42 @@ void *MT_sort_l0(void *void_args) {
 void *MT_sort_l1(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
-  sem_wait(&l0_to_l1);
-  std::cout << "l0_to_l1" << '\n';
+  sem_wait(&mt_sem_down.at(args->id));
+  std::cout << "id: " << args->id << " l0_to_l1" << '\n';
 
-  sem_post(&l1_to_l2);
-  sem_post(&l1_to_l2);
+  sem_post(&mt_sem_down.at(args->id * 2));
+  sem_post(&mt_sem_down.at(args->id * 2 + 1));
 
-  sem_wait(&l2_to_l1);
+  sem_wait(&mt_sem_up.at(args->id * 2));
+  sem_wait(&mt_sem_up.at(args->id * 2 + 1));
 
-  sem_post(&l1_to_l0);
+  sem_post(&mt_sem_up.at(args->id));
   pthread_exit(nullptr);
 }
 
 void *MT_sort_l2(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
-  sem_wait(&l1_to_l2);
-  std::cout << "l1_to_l2" << '\n';
+  sem_wait(&mt_sem_down.at(args->id));
+  std::cout << "id: " << args->id << " l1_to_l2" << '\n';
 
-  sem_post(&l2_to_l3);
-  sem_post(&l2_to_l3);
+  sem_post(&mt_sem_down.at(args->id * 2));
+  sem_post(&mt_sem_down.at(args->id * 2 + 1));
 
-  sem_wait(&l3_to_l2);
+  sem_wait(&mt_sem_up.at(args->id * 2));
+  sem_wait(&mt_sem_up.at(args->id * 2 + 1));
 
-  sem_post(&l2_to_l1);
+  sem_post(&mt_sem_up.at(args->id));
   pthread_exit(nullptr);
 }
 
 void *MT_sort_l3(void *void_args) {
   MT_args *args = (MT_args *)void_args;
 
-  sem_wait(&l2_to_l3);
-  std::cout << "l2_to_l3" << '\n';
+  sem_wait(&mt_sem_down.at(args->id));
+  std::cout << "id: " << args->id << " l2_to_l3" << '\n';
 
-  sem_post(&l3_to_l2);
+  sem_post(&mt_sem_up.at(args->id));
   pthread_exit(nullptr);
 }
 
@@ -236,6 +239,9 @@ int main(int argc, char **argv) {
         mt_args.at(i).hb = mt_args.at(i / 2).hb;
       }
       mt_args.at(i).id = i;
+
+      sem_init(&mt_sem_up.at(i), 0, 0);
+      sem_init(&mt_sem_down.at(i), 0, 0);
     }
 
     for (int i = 1; i <= 15; i++) {
