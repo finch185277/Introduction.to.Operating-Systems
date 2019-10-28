@@ -304,7 +304,7 @@ int main(int argc, char **argv) {
               << " secs\n";
 
   } else { // if file not exist
-    std::cout << "File: " << argv[1] << " does not exist!" << '\n';
+    std::cout << "File: " << file_name << " does not exist!" << '\n';
   }
 
   return 0;
