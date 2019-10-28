@@ -120,7 +120,6 @@ void *MT_sort_l0(void *void_args) {
 
 void *MT_sort_l1(void *void_args) {
   MT_args *args = (MT_args *)void_args;
-
   sem_wait(&sem_down.at(args->id));
 
   sem_post(&sem_down.at(args->id * 2));
@@ -137,7 +136,6 @@ void *MT_sort_l1(void *void_args) {
 
 void *MT_sort_l2(void *void_args) {
   MT_args *args = (MT_args *)void_args;
-
   sem_wait(&sem_down.at(args->id));
 
   sem_post(&sem_down.at(args->id * 2));
@@ -154,7 +152,6 @@ void *MT_sort_l2(void *void_args) {
 
 void *MT_sort_l3(void *void_args) {
   MT_args *args = (MT_args *)void_args;
-
   sem_wait(&sem_down.at(args->id));
 
   bubble_sort(args->nums, args->lb, args->hb);
