@@ -21,7 +21,7 @@ gen: $(GEN_CPP)
 .PHONY: test clean
 
 test: all gen
-	./$(EXEC_FILE) $(INPUT_FILE)
+	./$(EXEC_FILE)
 
 clean:
 	rm -rf $(EXEC_FILE) $(GEN_EXE) $(INPUT_FILE) $(OUTPUT_FILES)
