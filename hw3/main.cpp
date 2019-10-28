@@ -1,3 +1,13 @@
+/*
+Student No.: 0616214
+Student Name: YU-AN CHEN
+Email: 59487andy@gmail.com
+SE tag: xnxcxtxuxoxsx
+Statement: I am fully aware that this program is not
+supposed to be posted to a public server, such as a
+public GitHub repository or a public web page.
+*/
+
 #include <fstream>
 #include <iostream>
 #include <pthread.h>
