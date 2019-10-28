@@ -1,12 +1,9 @@
-#include <fcntl.h>
 #include <fstream>
 #include <iostream>
 #include <pthread.h>
 #include <semaphore.h>
 #include <sstream>
 #include <sys/time.h>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <vector>
 
 std::vector<sem_t> sem_up(16);
@@ -194,7 +191,7 @@ void *ST_helper(void *void_args) {
 int main(int argc, char **argv) {
   if (argc != 2) {
     std::cout << "Usage: " << argv[0] << " <file name>" << '\n';
-    return -1;
+    exit(0);
   }
 
   std::ifstream infile(argv[1]); // open the file
@@ -205,6 +202,10 @@ int main(int argc, char **argv) {
     // get # of nums
     std::getline(infile, line);
     cnt = std::stoi(line);
+    if (cnt == 0) {
+      std::cout << "Input Error: # of nums is 0" << '\n';
+      exit(0);
+    }
 
     // build nums
     std::vector<int> nums(cnt);
