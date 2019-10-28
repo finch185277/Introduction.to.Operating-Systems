@@ -5,7 +5,7 @@
 
 int main(int argc, char **argv) {
   if (argc != 3) {
-    std::cerr << "Usage: " << argv[0] << " <file name> <# of nums>";
+    std::cerr << "Usage: " << argv[0] << " <file name> <# of nums>" << '\n';
     return -1;
   }
   std::ofstream outfile(argv[1]);

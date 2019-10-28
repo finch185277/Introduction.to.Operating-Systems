@@ -301,7 +301,7 @@ int main(int argc, char **argv) {
     std::cout << "ST: " << st_sec + (st_usec / 1000000) << " sec" << '\n';
 
   } else { // if file not exist
-    std::cout << "File: " << argv[1] << " does not exist!" << std::endl;
+    std::cout << "File: " << argv[1] << " does not exist!" << '\n';
   }
 
   return 0;
