@@ -197,13 +197,14 @@ void *ST_helper(void *void_args) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    std::cout << "Usage: " << argv[0] << " <file name>" << '\n';
-    exit(0);
-  }
+  // get file name
+  std::string file_name;
+  std::cout << "Enter input file name: ";
+  std::cin >> file_name;
 
-  std::ifstream infile(argv[1]); // open the file
-  if (infile.good()) {           // if file exist
+  // open the file
+  std::ifstream infile(file_name);
+  if (infile.good()) { // if file exist
     int cnt, idx = 0;
     std::string line;
 
@@ -277,7 +278,8 @@ int main(int argc, char **argv) {
     gettimeofday(&mt_end, 0);
     double mt_sec = mt_end.tv_sec - mt_start.tv_sec;
     double mt_usec = mt_end.tv_usec - mt_start.tv_usec;
-    std::cout << "MT: " << mt_sec + (mt_usec / 1000000) << " sec" << '\n';
+    std::cout << "MT sorting used " << mt_sec + (mt_usec / 1000000)
+              << " secs\n";
 
     // Single thread
     ST_args st_args;
@@ -298,7 +300,8 @@ int main(int argc, char **argv) {
     gettimeofday(&st_end, 0);
     double st_sec = st_end.tv_sec - st_start.tv_sec;
     double st_usec = st_end.tv_usec - st_start.tv_usec;
-    std::cout << "ST: " << st_sec + (st_usec / 1000000) << " sec" << '\n';
+    std::cout << "ST sorting used " << st_sec + (st_usec / 1000000)
+              << " secs\n";
 
   } else { // if file not exist
     std::cout << "File: " << argv[1] << " does not exist!" << '\n';
