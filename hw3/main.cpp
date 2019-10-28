@@ -10,6 +10,7 @@ public GitHub repository or a public web page.
 
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <pthread.h>
 #include <semaphore.h>
 #include <sstream>
