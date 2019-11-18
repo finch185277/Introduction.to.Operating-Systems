@@ -21,7 +21,6 @@ sem_t is_job_ready, is_job_done, mutux_job_list;
 
 struct Args {
   std::vector<int> *nums;
-  int id;
 };
 
 struct Job {
@@ -29,12 +28,12 @@ struct Job {
   int lb;
   int mid;
   int hb;
-  int sort_type;
-  // 0: bubble sort
-  // 1: merge sort
+  int id;
+  int sort_type; // 0: bubble sort 1: merge sort
 };
 
 std::vector<struct Job> job_list;
+std::vector<bool> check_list(16, false);
 
 void print_nums(std::ofstream &fst, std::vector<int> &nums) {
   bool is_first = true;
@@ -83,6 +82,7 @@ void sort_worker(std::vector<int> *nums) {
   else if (job_list.at(idx).sort_type == 1)
     merge(nums, job_list.at(idx).lb, job_list.at(idx).mid, job_list.at(idx).hb);
 
+  check_list.at(job_list.at(idx).id) = true;
   job_list.at(idx).is_taken = true;
 }
 
@@ -105,6 +105,7 @@ void job_dispatcher(std::vector<int> &nums, int n) {
     job.is_taken = false;
     job.lb = (nums.size() - 1) * i / 8;
     job.hb = (nums.size() - 1) * (i + 1) / 8 - 1;
+    job.id = i + 8;
     job.sort_type = 0;
     sem_wait(&mutux_job_list);
     job_list.push_back(job);
@@ -114,15 +115,52 @@ void job_dispatcher(std::vector<int> &nums, int n) {
 
   for (int remain_jobs = 15; remain_jobs >= 1; remain_jobs--) {
     sem_wait(&is_job_done);
-    job.is_taken = false;
-    job.lb = 0;
-    job.mid = (nums.size() - 1) / 2;
-    job.hb = nums.size() - 1;
-    job.sort_type = 1;
-    sem_wait(&mutux_job_list);
-    job_list.push_back(job);
-    sem_post(&mutux_job_list);
-    sem_post(&is_job_ready);
+    for (int i = 7; i >= 1; i--) {
+      if (check_list.at(i * 2) && check_list.at(i * 2 + 1)) {
+        job.is_taken = false;
+        switch (i) {
+        case 1:
+          job.lb = 0;
+          job.mid = (nums.size() - 1) * 4 / 8;
+          job.hb = (nums.size() - 1) * 8 / 8;
+        case 2:
+          job.lb = 0;
+          job.mid = (nums.size() - 1) * 2 / 8;
+          job.hb = (nums.size() - 1) * 4 / 8;
+        case 3:
+          job.lb = (nums.size() - 1) * 4 / 8 + 1;
+          job.mid = (nums.size() - 1) * 6 / 8;
+          job.hb = (nums.size() - 1) * 8 / 8;
+        case 4:
+          job.lb = 0;
+          job.mid = (nums.size() - 1) * 1 / 8;
+          job.hb = (nums.size() - 1) * 2 / 8;
+        case 5:
+          job.lb = (nums.size() - 1) * 2 / 8 + 1;
+          job.mid = (nums.size() - 1) * 3 / 8;
+          job.hb = (nums.size() - 1) * 4 / 8;
+        case 6:
+          job.lb = (nums.size() - 1) * 4 / 8 + 1;
+          job.mid = (nums.size() - 1) * 5 / 8;
+          job.hb = (nums.size() - 1) * 6 / 8;
+        case 7:
+          job.lb = (nums.size() - 1) * 6 / 8 + 1;
+          job.mid = (nums.size() - 1) * 7 / 8;
+          job.hb = (nums.size() - 1) * 8 / 8;
+        }
+        job.id = i;
+        job.sort_type = 1;
+        sem_wait(&mutux_job_list);
+        job_list.push_back(job);
+        sem_post(&mutux_job_list);
+        sem_post(&is_job_ready);
+
+        check_list.at(i * 2) = false;
+        check_list.at(i * 2 + 1) = false;
+
+        break;
+      }
+    }
   }
 
   std::ofstream outfile("output1.txt");
