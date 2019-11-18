@@ -17,8 +17,7 @@ public GitHub repository or a public web page.
 #include <sys/time.h>
 #include <vector>
 
-sem_t is_job_ready, mutux_job_list;
-sem_t level_1, level_2, level_3;
+sem_t is_job_ready, is_job_done, mutux_job_list;
 
 struct Args {
   std::vector<int> *nums;
@@ -94,7 +93,7 @@ void *thread_pool_maintainer(void *void_args) {
     sem_wait(&mutux_job_list);
     sort_worker(args->nums);
     sem_post(&mutux_job_list);
-    sem_post(&level_3);
+    sem_post(&is_job_done);
   }
 }
 
@@ -102,29 +101,29 @@ void job_dispatcher(std::vector<int> &nums, int n) {
   job_list.resize(0);
   struct Job job;
 
-  job.is_taken = false;
-  job.lb = 0;
-  job.hb = (nums.size() - 1) / 2;
-  job.sort_type = 0;
-  job_list.push_back(job);
-  sem_post(&is_job_ready);
+  for (int i = 0; i < 8; i++) {
+    job.is_taken = false;
+    job.lb = (nums.size() - 1) * i / 8;
+    job.hb = (nums.size() - 1) * (i + 1) / 8 - 1;
+    job.sort_type = 0;
+    sem_wait(&mutux_job_list);
+    job_list.push_back(job);
+    sem_post(&mutux_job_list);
+    sem_post(&is_job_ready);
+  }
 
-  job.is_taken = false;
-  job.lb = (nums.size() - 1) / 2 + 1;
-  job.hb = nums.size() - 1;
-  job.sort_type = 0;
-  job_list.push_back(job);
-  sem_post(&is_job_ready);
-
-  sem_wait(&level_3);
-  sem_wait(&level_3);
-  job.is_taken = false;
-  job.lb = 0;
-  job.mid = (nums.size() - 1) / 2;
-  job.hb = nums.size() - 1;
-  job.sort_type = 1;
-  job_list.push_back(job);
-  sem_post(&is_job_ready);
+  for (int remain_jobs = 15; remain_jobs >= 1; remain_jobs--) {
+    sem_wait(&is_job_done);
+    job.is_taken = false;
+    job.lb = 0;
+    job.mid = (nums.size() - 1) / 2;
+    job.hb = nums.size() - 1;
+    job.sort_type = 1;
+    sem_wait(&mutux_job_list);
+    job_list.push_back(job);
+    sem_post(&mutux_job_list);
+    sem_post(&is_job_ready);
+  }
 
   std::ofstream outfile("output1.txt");
   print_nums(outfile, nums);
@@ -175,10 +174,8 @@ int main(int argc, char **argv) {
       nums.at(idx++) = num;
 
     sem_init(&is_job_ready, 0, 0);
+    sem_init(&is_job_done, 0, 0);
     sem_init(&mutux_job_list, 0, 1);
-    sem_init(&level_1, 0, 0);
-    sem_init(&level_2, 0, 0);
-    sem_init(&level_3, 0, 0);
 
     pthread_t tid;
     struct Args args;
