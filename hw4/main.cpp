@@ -20,13 +20,25 @@ public GitHub repository or a public web page.
 std::vector<sem_t> sem_up(16);
 std::vector<sem_t> sem_down(16);
 
-struct args {
+struct Args {
   std::vector<int> *nums;
   int lb;
   int mid;
   int hb;
   int id;
 };
+
+struct Job {
+  bool is_taken;
+  int lb;
+  int mid;
+  int hb;
+  int sort_type;
+  // 0: bubble sort
+  // 1: merge sort
+};
+
+std::vector<struct Job> job_list;
 
 void print_nums(std::ofstream &fst, std::vector<int> nums) {
   bool is_first = true;
@@ -100,17 +112,40 @@ void merge(std::vector<int> *nums, int lb, int mid, int ub) {
   }
 }
 
-void job_dispatcher() { ; }
+void sort_worker() {
+  int idx = 0;
+  for (; idx < job_list.size(); idx++)
+    if (job_list.at(idx).is_taken == false)
+      break;
+  if (job_list.at(idx).sort_type == 0)
+    bubble_sort(nums, job_list.at(idx).lb, job_list.at(idx).hb);
+}
 
-void sort_worker() { ; }
+void job_dispatcher() {
+  struct Job job;
+  job.is_taken = false;
+  job.lb = 0;
+  job.hb = nums.size();
+  job.sort_type = 0;
+  job_list.push_back(job);
+  sem_post(&is_job_ready);
+}
 
-void sort_with_n_thread(std::vector<int> &nums, n) {
+void thread_pool_maintainer() {
+  for (;;) {
+    sem_wait(&is_job_ready);
+    sem_wait(&job_list);
+    sort_worker();
+    sem_post(&job_list);
+  }
+}
+
+void sort_with_n_thread(std::vector<int> &nums, int n) {
   // start of count the time
   struct timeval st_start, st_end;
   gettimeofday(&st_start, 0);
 
-  sem_post(&sem_down.at(0));
-  sem_wait(&sem_up.at(0));
+  job_dispatcher(nums);
 
   // end of count the time
   gettimeofday(&st_end, 0);
@@ -157,11 +192,10 @@ int main(int argc, char **argv) {
     // build all thread id
     std::vector<pthread_t> tid(8);
 
-    for (int i = 0; i < 8; i++)
-      pthread_create(&tid.at(i), nullptr, sort_worker, &st_args);
-
-    for (int i = 1; i <= 8; i++)
+    for (int i = 1; i <= 8; i++) {
+      pthread_create(&tid.at(i - 1), nullptr, thread_pool_maintainer, &Args);
       sort_with_n_thread(nums, i);
+    }
 
   } else { // if file not exist
     std::cout << "File: " << file_name << " does not exist!" << '\n';
