@@ -18,6 +18,7 @@ public GitHub repository or a public web page.
 #include <vector>
 
 sem_t is_job_ready, mutux_job_list;
+sem_t level_1, level_2, level_3;
 
 struct Args {
   std::vector<int> *nums;
@@ -36,7 +37,7 @@ struct Job {
 
 std::vector<struct Job> job_list;
 
-void print_nums(std::ofstream &fst, std::vector<int> nums) {
+void print_nums(std::ofstream &fst, std::vector<int> &nums) {
   bool is_first = true;
   for (int i = 0; i < nums.size(); i++) {
     if (is_first) {
@@ -48,47 +49,11 @@ void print_nums(std::ofstream &fst, std::vector<int> nums) {
   }
 }
 
-void print_nums(std::ofstream &fst, std::vector<int> *nums) {
-  bool is_first = true;
-  for (int i = 0; i < nums->size(); i++) {
-    if (is_first) {
-      fst << nums->at(i);
-      is_first = false;
-    } else {
-      fst << ' ' << nums->at(i);
-    }
-  }
-}
-
-void bubble_sort(std::vector<int> &nums, int lb, int ub) {
-  for (int i = ub; i > 0; i--)
-    for (int j = lb; j < i; j++)
-      if (nums.at(j) > nums.at(j + 1))
-        std::swap(nums.at(j), nums.at(j + 1));
-}
-
 void bubble_sort(std::vector<int> *nums, int lb, int ub) {
   for (int i = ub; i > 0; i--)
     for (int j = lb; j < i; j++)
       if (nums->at(j) > nums->at(j + 1))
         std::swap(nums->at(j), nums->at(j + 1));
-}
-
-void merge(std::vector<int> &nums, int lb, int mid, int ub) {
-  int left_idx = 0, right_idx = 0;
-  std::vector<int> left(nums.begin() + lb, nums.begin() + mid + 1),
-      right(nums.begin() + mid + 1, nums.begin() + ub + 1);
-
-  left.insert(left.end(), std::numeric_limits<int>::max());
-  right.insert(right.end(), std::numeric_limits<int>::max());
-
-  for (int i = lb; i <= ub; i++) {
-    if (left.at(left_idx) < right.at(right_idx)) {
-      nums.at(i) = left.at(left_idx++);
-    } else {
-      nums.at(i) = right.at(right_idx++);
-    }
-  }
 }
 
 void merge(std::vector<int> *nums, int lb, int mid, int ub) {
@@ -113,8 +78,12 @@ void sort_worker(std::vector<int> *nums) {
   for (; idx < job_list.size(); idx++)
     if (job_list.at(idx).is_taken == false)
       break;
+
   if (job_list.at(idx).sort_type == 0)
     bubble_sort(nums, job_list.at(idx).lb, job_list.at(idx).hb);
+  else if (job_list.at(idx).sort_type == 1)
+    merge(nums, job_list.at(idx).lb, job_list.at(idx).mid, job_list.at(idx).hb);
+
   job_list.at(idx).is_taken = true;
 }
 
@@ -125,16 +94,35 @@ void *thread_pool_maintainer(void *void_args) {
     sem_wait(&mutux_job_list);
     sort_worker(args->nums);
     sem_post(&mutux_job_list);
+    sem_post(&level_3);
   }
 }
 
 void job_dispatcher(std::vector<int> &nums, int n) {
   job_list.resize(0);
   struct Job job;
+
   job.is_taken = false;
   job.lb = 0;
+  job.hb = (nums.size() - 1) / 2;
+  job.sort_type = 0;
+  job_list.push_back(job);
+  sem_post(&is_job_ready);
+
+  job.is_taken = false;
+  job.lb = (nums.size() - 1) / 2 + 1;
   job.hb = nums.size() - 1;
   job.sort_type = 0;
+  job_list.push_back(job);
+  sem_post(&is_job_ready);
+
+  sem_wait(&level_3);
+  sem_wait(&level_3);
+  job.is_taken = false;
+  job.lb = 0;
+  job.mid = (nums.size() - 1) / 2;
+  job.hb = nums.size() - 1;
+  job.sort_type = 1;
   job_list.push_back(job);
   sem_post(&is_job_ready);
 
@@ -188,6 +176,9 @@ int main(int argc, char **argv) {
 
     sem_init(&is_job_ready, 0, 0);
     sem_init(&mutux_job_list, 0, 1);
+    sem_init(&level_1, 0, 0);
+    sem_init(&level_2, 0, 0);
+    sem_init(&level_3, 0, 0);
 
     pthread_t tid;
     struct Args args;
