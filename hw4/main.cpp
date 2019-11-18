@@ -17,14 +17,10 @@ public GitHub repository or a public web page.
 #include <sys/time.h>
 #include <vector>
 
-std::vector<sem_t> sem_up(16);
-std::vector<sem_t> sem_down(16);
+sem_t is_job_ready, mutux_job_list;
 
 struct Args {
   std::vector<int> *nums;
-  int lb;
-  int mid;
-  int hb;
   int id;
 };
 
@@ -112,32 +108,39 @@ void merge(std::vector<int> *nums, int lb, int mid, int ub) {
   }
 }
 
-void sort_worker() {
+void sort_worker(std::vector<int> *nums) {
   int idx = 0;
   for (; idx < job_list.size(); idx++)
     if (job_list.at(idx).is_taken == false)
       break;
   if (job_list.at(idx).sort_type == 0)
     bubble_sort(nums, job_list.at(idx).lb, job_list.at(idx).hb);
+  job_list.at(idx).is_taken = true;
 }
 
-void job_dispatcher() {
+void *thread_pool_maintainer(void *void_args) {
+  Args *args = (Args *)void_args;
+  for (;;) {
+    sem_wait(&is_job_ready);
+    sem_wait(&mutux_job_list);
+    sort_worker(args->nums);
+    sem_post(&mutux_job_list);
+  }
+}
+
+void job_dispatcher(std::vector<int> &nums, int n) {
+  job_list.resize(0);
   struct Job job;
   job.is_taken = false;
   job.lb = 0;
-  job.hb = nums.size();
+  job.hb = nums.size() - 1;
   job.sort_type = 0;
   job_list.push_back(job);
   sem_post(&is_job_ready);
-}
 
-void thread_pool_maintainer() {
-  for (;;) {
-    sem_wait(&is_job_ready);
-    sem_wait(&job_list);
-    sort_worker();
-    sem_post(&job_list);
-  }
+  std::ofstream outfile("output1.txt");
+  print_nums(outfile, nums);
+  outfile.close();
 }
 
 void sort_with_n_thread(std::vector<int> &nums, int n) {
@@ -145,7 +148,7 @@ void sort_with_n_thread(std::vector<int> &nums, int n) {
   struct timeval st_start, st_end;
   gettimeofday(&st_start, 0);
 
-  job_dispatcher(nums);
+  job_dispatcher(nums, n);
 
   // end of count the time
   gettimeofday(&st_end, 0);
@@ -183,19 +186,16 @@ int main(int argc, char **argv) {
     while (ss >> num)
       nums.at(idx++) = num;
 
-    // init all semaphore
-    for (int i = 0; i < 16; i++) {
-      sem_init(&sem_up.at(i), 0, 0);
-      sem_init(&sem_down.at(i), 0, 0);
-    }
+    sem_init(&is_job_ready, 0, 0);
+    sem_init(&mutux_job_list, 0, 1);
 
-    // build all thread id
-    std::vector<pthread_t> tid(8);
+    pthread_t tid;
+    struct Args args;
+    std::vector<int> thread_nums(nums.begin(), nums.end());
+    args.nums = &thread_nums;
+    pthread_create(&tid, nullptr, thread_pool_maintainer, &args);
 
-    for (int i = 1; i <= 8; i++) {
-      pthread_create(&tid.at(i - 1), nullptr, thread_pool_maintainer, &Args);
-      sort_with_n_thread(nums, i);
-    }
+    sort_with_n_thread(thread_nums, 1);
 
   } else { // if file not exist
     std::cout << "File: " << file_name << " does not exist!" << '\n';
