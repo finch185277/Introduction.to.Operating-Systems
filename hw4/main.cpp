@@ -22,6 +22,7 @@ sem_t mutux_job_list, mutux_check_list;
 
 struct Args {
   std::vector<int> *nums;
+  int tid;
 };
 
 struct Job {
@@ -105,6 +106,7 @@ void *thread_pool_maintainer(void *void_args) {
   // use for loop waiting job continuingly
   for (;;) {
     sem_wait(&is_job_ready);
+    std::cout << "use thread: " << args->tid << '\n';
     sort_worker(args->nums);
     sem_post(&is_job_done);
   }
@@ -235,6 +237,7 @@ int main(int argc, char **argv) {
       struct Args args;
       std::vector<int> thread_nums(nums.begin(), nums.end());
       args.nums = &thread_nums;
+      args.tid = n - 1;
 
       // create a new thread when n++
       pthread_create(&tid.at(n - 1), nullptr, thread_pool_maintainer, &args);
