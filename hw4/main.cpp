@@ -86,14 +86,13 @@ void sort_worker(std::vector<int> *nums) {
   for (; idx < job_list.size(); idx++)
     if (job_list.at(idx).is_taken == false)
       break;
+  job_list.at(idx).is_taken = true;
+  sem_post(&mutux_job_list);
 
   if (job_list.at(idx).sort_type == 0)
     bubble_sort(nums, job_list.at(idx).lb, job_list.at(idx).hb);
   else if (job_list.at(idx).sort_type == 1)
     merge(nums, job_list.at(idx).lb, job_list.at(idx).mid, job_list.at(idx).hb);
-
-  job_list.at(idx).is_taken = true;
-  sem_post(&mutux_job_list);
 
   sem_wait(&mutux_check_list);
   check_list.at(job_list.at(idx).id) = true;
