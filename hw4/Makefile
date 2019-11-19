@@ -6,9 +6,9 @@ EXEC_FILE = main
 GEN_CPP = gen_input.cpp
 GEN_EXE = gen_input
 
-INPUT_SIZE = 1000000
+INPUT_SIZE = 100
 INPUT_FILE = input
-OUTPUT_FILES = output1.txt output2.txt
+OUTPUT_FILES = output*.txt
 
 
 all: $(RAW_FILES)
