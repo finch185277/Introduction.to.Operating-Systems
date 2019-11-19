@@ -163,7 +163,10 @@ void job_dispatcher(std::vector<int> &nums, int n) {
     sem_post(&mutux_check_list);
   }
 
-  std::ofstream outfile("output1.txt");
+  std::stringstream ss;
+  ss << "output" << n << ".txt";
+  std::string file_name = ss.str();
+  std::ofstream outfile(file_name);
   print_nums(outfile, nums);
   outfile.close();
 }
