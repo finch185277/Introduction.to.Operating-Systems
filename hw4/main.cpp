@@ -241,6 +241,9 @@ int main(int argc, char **argv) {
       }
 
       sort_with_n_thread(thread_nums, n);
+
+      for (int i = 0; i < n; i++)
+        pthread_cancel(tid.at(i));
     }
 
   } else { // if file not exist
