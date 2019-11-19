@@ -9,10 +9,9 @@ int main(int argc, char **argv) {
     return -1;
   }
   std::ofstream outfile(argv[1]);
-  std::srand(std::time(0));
   outfile << argv[2] << '\n';
-  for (int i = 0; i < std::atoi(argv[2]); i++) {
-    outfile << std::rand() << ' ';
+  for (int i = std::atoi(argv[2]); i > 0; i--) {
+    outfile << i << ' ';
   }
   outfile << '\n';
   outfile.close();
