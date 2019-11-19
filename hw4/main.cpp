@@ -20,19 +20,21 @@ public GitHub repository or a public web page.
 sem_t is_job_ready, is_job_done;
 sem_t mutux_job_list, mutux_check_list;
 
-struct Args {
-  std::vector<int> *nums;
-};
-
 struct Job {
   bool is_taken;
   int lb;
   int mid;
   int hb;
   int id;
-  int sort_type;
+  int type;
   // 0: bubble sort
   // 1: merge
+};
+
+struct Args {
+  std::vector<int> *nums;
+  std::vector<struct Job> *job_list;
+  std::vector<bool> *check_list;
 };
 
 struct Range {
@@ -40,9 +42,6 @@ struct Range {
   int mid;
   int hb;
 };
-
-std::vector<struct Job> job_list;
-std::vector<bool> check_list(16, false);
 
 void print_nums(std::ofstream &fst, std::vector<int> &nums) {
   bool is_first = true;
@@ -80,39 +79,41 @@ void merge(std::vector<int> *nums, int lb, int mid, int ub) {
   }
 }
 
-void sort_worker(std::vector<int> *nums) {
+void sort_worker(std::vector<int> *nums, std::vector<struct Job> *job_list,
+                 std::vector<bool> *check_list) {
+  // find non-taken job, and mark that job as taken
   sem_wait(&mutux_job_list);
-  int idx = 0;
-  for (; idx < job_list.size(); idx++)
-    if (job_list.at(idx).is_taken == false)
+  int i = 0;
+  for (; i < job_list->size(); i++)
+    if (job_list->at(i).is_taken == false)
       break;
-  job_list.at(idx).is_taken = true;
+  job_list->at(i).is_taken = true;
   sem_post(&mutux_job_list);
 
-  if (job_list.at(idx).sort_type == 0)
-    bubble_sort(nums, job_list.at(idx).lb, job_list.at(idx).hb);
-  else if (job_list.at(idx).sort_type == 1)
-    merge(nums, job_list.at(idx).lb, job_list.at(idx).mid, job_list.at(idx).hb);
+  // decide job type
+  if (job_list->at(i).type == 0)
+    bubble_sort(nums, job_list->at(i).lb, job_list->at(i).hb);
+  else if (job_list->at(i).type == 1)
+    merge(nums, job_list->at(i).lb, job_list->at(i).mid, job_list->at(i).hb);
 
+  // mark complete job
   sem_wait(&mutux_check_list);
-  check_list.at(job_list.at(idx).id) = true;
+  check_list->at(job_list->at(i).id) = true;
   sem_post(&mutux_check_list);
 }
 
 void *thread_pool_manager(void *void_args) {
   Args *args = (Args *)void_args;
-  // use for loop waiting job continuingly
+  // use for-loop waiting job continuingly
   for (;;) {
     sem_wait(&is_job_ready);
-    sort_worker(args->nums);
+    sort_worker(args->nums, args->job_list, args->check_list);
     sem_post(&is_job_done);
   }
 }
 
-void job_dispatcher(std::vector<int> &nums, int n) {
-  job_list.resize(0);
-  struct Job job;
-
+void job_dispatcher(std::vector<int> &nums, std::vector<struct Job> &job_list,
+                    std::vector<bool> &check_list, int n) {
   // calculate the range before job been created
   std::vector<struct Range> range_list(16);
   range_list.at(1).lb = 0;
@@ -130,26 +131,26 @@ void job_dispatcher(std::vector<int> &nums, int n) {
   }
 
   // create the bottom‐level job (bubble sort)
+  struct Job job;
   for (int i = 8; i <= 15; i++) {
     job.is_taken = false;
     job.lb = range_list.at(i).lb;
     job.hb = range_list.at(i).hb;
     job.id = i;
-    job.sort_type = 0;
+    job.type = 0;
     sem_wait(&mutux_job_list);
     job_list.push_back(job);
     sem_post(&mutux_job_list);
     sem_post(&is_job_ready);
   }
 
-  // is_job_done only trigger 15 times
+  // is_job_done trigger 15 times before sorting complete
   for (int remain_jobs = 15; remain_jobs >= 1; remain_jobs--) {
     sem_wait(&is_job_done);
     sem_wait(&mutux_check_list);
-    // each time is_job_done been trigger,
-    // check whether existing sub-array pair can be merge into one array,
-    // if yes: create merge job
-    // if no: continue
+    // check whether existing sub-array pair could be merge
+    // if yes: create high-level job (merge)
+    // if no: continue for-loop
     for (int i = 7; i >= 1; i--) {
       if (check_list.at(i * 2) && check_list.at(i * 2 + 1)) {
         job.is_taken = false;
@@ -157,7 +158,7 @@ void job_dispatcher(std::vector<int> &nums, int n) {
         job.mid = range_list.at(i).mid;
         job.hb = range_list.at(i).hb;
         job.id = i;
-        job.sort_type = 1;
+        job.type = 1;
 
         sem_wait(&mutux_job_list);
         job_list.push_back(job);
@@ -180,12 +181,14 @@ void job_dispatcher(std::vector<int> &nums, int n) {
   outfile.close();
 }
 
-void sort_with_n_thread(std::vector<int> &nums, int n) {
+void sort_with_n_thread(std::vector<int> &nums,
+                        std::vector<struct Job> &job_list,
+                        std::vector<bool> &check_list, int n) {
   // start of count the time
   struct timeval st_start, st_end;
   gettimeofday(&st_start, 0);
 
-  job_dispatcher(nums, n);
+  job_dispatcher(nums, job_list, check_list, n);
 
   // end of count the time
   gettimeofday(&st_end, 0);
@@ -223,32 +226,34 @@ int main(int argc, char **argv) {
     while (ss >> num)
       nums.at(idx++) = num;
 
-    sem_init(&is_job_ready, 0, 0);
-    sem_init(&is_job_done, 0, 0);
-    sem_init(&mutux_job_list, 0, 1);
-    sem_init(&mutux_check_list, 0, 1);
-
-    std::vector<pthread_t> tid(8);
-    std::vector<struct Args> args(8);
-
     for (int n = 1; n <= 8; n++) {
+      std::vector<pthread_t> tid(n);
+      std::vector<struct Args> args(n);
       std::vector<int> thread_nums(nums.begin(), nums.end());
+      std::vector<struct Job> job_list;
+      std::vector<bool> check_list(16, false);
+
+      sem_init(&is_job_ready, 0, 0);
+      sem_init(&is_job_done, 0, 0);
+      sem_init(&mutux_job_list, 0, 1);
+      sem_init(&mutux_check_list, 0, 1);
 
       // create a new thread pool
       for (int i = 0; i < n; i++) {
         args.at(i).nums = &thread_nums;
+        args.at(i).job_list = &job_list;
+        args.at(i).check_list = &check_list;
         pthread_create(&tid.at(i), nullptr, thread_pool_manager, &args.at(i));
       }
 
-      sort_with_n_thread(thread_nums, n);
+      sort_with_n_thread(thread_nums, job_list, check_list, n);
 
+      // delete the thread pool
       for (int i = 0; i < n; i++)
         pthread_cancel(tid.at(i));
     }
-
   } else { // if file not exist
     std::cout << "File: " << file_name << " does not exist!" << '\n';
   }
-
   return 0;
 }
