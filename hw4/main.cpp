@@ -221,13 +221,16 @@ int main(int argc, char **argv) {
     sem_init(&mutux_job_list, 0, 1);
     sem_init(&mutux_check_list, 0, 1);
 
-    pthread_t tid;
-    struct Args args;
-    std::vector<int> thread_nums(nums.begin(), nums.end());
-    args.nums = &thread_nums;
-    pthread_create(&tid, nullptr, thread_pool_maintainer, &args);
+    std::vector<pthread_t> tid(8);
 
-    sort_with_n_thread(thread_nums, 1);
+    for (int n = 1; n <= 8; n++) {
+      struct Args args;
+      std::vector<int> thread_nums(nums.begin(), nums.end());
+      args.nums = &thread_nums;
+      pthread_create(&tid.at(n - 1), nullptr, thread_pool_maintainer, &args);
+
+      sort_with_n_thread(thread_nums, n);
+    }
 
   } else { // if file not exist
     std::cout << "File: " << file_name << " does not exist!" << '\n';
