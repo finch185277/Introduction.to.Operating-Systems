@@ -22,7 +22,6 @@ sem_t mutux_job_list, mutux_check_list;
 
 struct Args {
   std::vector<int> *nums;
-  int tid;
 };
 
 struct Job {
@@ -101,12 +100,11 @@ void sort_worker(std::vector<int> *nums) {
   sem_post(&mutux_check_list);
 }
 
-void *thread_pool_maintainer(void *void_args) {
+void *thread_pool_manager(void *void_args) {
   Args *args = (Args *)void_args;
   // use for loop waiting job continuingly
   for (;;) {
     sem_wait(&is_job_ready);
-    std::cout << "use thread: " << args->tid << '\n';
     sort_worker(args->nums);
     sem_post(&is_job_done);
   }
@@ -232,15 +230,16 @@ int main(int argc, char **argv) {
     sem_init(&mutux_check_list, 0, 1);
 
     std::vector<pthread_t> tid(8);
+    std::vector<struct Args> args(8);
 
     for (int n = 1; n <= 8; n++) {
-      struct Args args;
       std::vector<int> thread_nums(nums.begin(), nums.end());
-      args.nums = &thread_nums;
-      args.tid = n - 1;
 
-      // create a new thread when n++
-      pthread_create(&tid.at(n - 1), nullptr, thread_pool_maintainer, &args);
+      // create a new thread pool
+      for (int i = 0; i < n; i++) {
+        args.at(i).nums = &thread_nums;
+        pthread_create(&tid.at(i), nullptr, thread_pool_manager, &args.at(i));
+      }
 
       sort_with_n_thread(thread_nums, n);
     }
