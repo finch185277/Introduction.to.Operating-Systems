@@ -30,7 +30,9 @@ struct Job {
   int mid;
   int hb;
   int id;
-  int sort_type; // 0: bubble sort 1: merge sort
+  int sort_type;
+  // 0: bubble sort
+  // 1: merge sort
 };
 
 struct Range {
@@ -79,6 +81,7 @@ void merge(std::vector<int> *nums, int lb, int mid, int ub) {
 }
 
 void sort_worker(std::vector<int> *nums) {
+  sem_wait(&mutux_job_list);
   int idx = 0;
   for (; idx < job_list.size(); idx++)
     if (job_list.at(idx).is_taken == false)
@@ -89,21 +92,20 @@ void sort_worker(std::vector<int> *nums) {
   else if (job_list.at(idx).sort_type == 1)
     merge(nums, job_list.at(idx).lb, job_list.at(idx).mid, job_list.at(idx).hb);
 
+  job_list.at(idx).is_taken = true;
+  sem_post(&mutux_job_list);
+
   sem_wait(&mutux_check_list);
   check_list.at(job_list.at(idx).id) = true;
   std::cout << "get job " << job_list.at(idx).id << " done" << '\n';
   sem_post(&mutux_check_list);
-
-  job_list.at(idx).is_taken = true;
 }
 
 void *thread_pool_maintainer(void *void_args) {
   Args *args = (Args *)void_args;
   for (;;) {
     sem_wait(&is_job_ready);
-    sem_wait(&mutux_job_list);
     sort_worker(args->nums);
-    sem_post(&mutux_job_list);
     sem_post(&is_job_done);
   }
 }
