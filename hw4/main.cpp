@@ -32,7 +32,7 @@ struct Job {
   int id;
   int sort_type;
   // 0: bubble sort
-  // 1: merge sort
+  // 1: merge
 };
 
 struct Range {
@@ -97,12 +97,12 @@ void sort_worker(std::vector<int> *nums) {
 
   sem_wait(&mutux_check_list);
   check_list.at(job_list.at(idx).id) = true;
-  std::cout << "get job " << job_list.at(idx).id << " done" << '\n';
   sem_post(&mutux_check_list);
 }
 
 void *thread_pool_maintainer(void *void_args) {
   Args *args = (Args *)void_args;
+  // use for loop waiting job continuingly
   for (;;) {
     sem_wait(&is_job_ready);
     sort_worker(args->nums);
@@ -114,6 +114,7 @@ void job_dispatcher(std::vector<int> &nums, int n) {
   job_list.resize(0);
   struct Job job;
 
+  // calculate the range before job been created
   std::vector<struct Range> range_list(16);
   range_list.at(1).lb = 0;
   range_list.at(1).hb = nums.size() - 1;
@@ -129,6 +130,7 @@ void job_dispatcher(std::vector<int> &nums, int n) {
     range_list.at(i).mid = (range_list.at(i).lb + range_list.at(i).hb) / 2;
   }
 
+  // create the bottom‐level job (bubble sort)
   for (int i = 8; i <= 15; i++) {
     job.is_taken = false;
     job.lb = range_list.at(i).lb;
@@ -141,9 +143,14 @@ void job_dispatcher(std::vector<int> &nums, int n) {
     sem_post(&is_job_ready);
   }
 
+  // is_job_done only trigger 15 times
   for (int remain_jobs = 15; remain_jobs >= 1; remain_jobs--) {
     sem_wait(&is_job_done);
     sem_wait(&mutux_check_list);
+    // each time is_job_done been trigger,
+    // check whether existing sub-array pair can be merge into one array,
+    // if yes: create merge job
+    // if no: continue
     for (int i = 7; i >= 1; i--) {
       if (check_list.at(i * 2) && check_list.at(i * 2 + 1)) {
         job.is_taken = false;
@@ -165,6 +172,7 @@ void job_dispatcher(std::vector<int> &nums, int n) {
     sem_post(&mutux_check_list);
   }
 
+  // output the nums to file
   std::stringstream ss;
   ss << "output" << n << ".txt";
   std::string file_name = ss.str();
@@ -227,6 +235,8 @@ int main(int argc, char **argv) {
       struct Args args;
       std::vector<int> thread_nums(nums.begin(), nums.end());
       args.nums = &thread_nums;
+
+      // create a new thread when n++
       pthread_create(&tid.at(n - 1), nullptr, thread_pool_maintainer, &args);
 
       sort_with_n_thread(thread_nums, n);
