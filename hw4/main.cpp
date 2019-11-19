@@ -17,7 +17,8 @@ public GitHub repository or a public web page.
 #include <sys/time.h>
 #include <vector>
 
-sem_t is_job_ready, is_job_done, mutux_job_list;
+sem_t is_job_ready, is_job_done;
+sem_t mutux_job_list, mutux_check_list;
 
 struct Args {
   std::vector<int> *nums;
@@ -30,6 +31,12 @@ struct Job {
   int hb;
   int id;
   int sort_type; // 0: bubble sort 1: merge sort
+};
+
+struct Range {
+  int lb;
+  int mid;
+  int hb;
 };
 
 std::vector<struct Job> job_list;
@@ -82,7 +89,11 @@ void sort_worker(std::vector<int> *nums) {
   else if (job_list.at(idx).sort_type == 1)
     merge(nums, job_list.at(idx).lb, job_list.at(idx).mid, job_list.at(idx).hb);
 
+  sem_wait(&mutux_check_list);
   check_list.at(job_list.at(idx).id) = true;
+  std::cout << "get job " << job_list.at(idx).id << " done" << '\n';
+  sem_post(&mutux_check_list);
+
   job_list.at(idx).is_taken = true;
 }
 
@@ -101,11 +112,26 @@ void job_dispatcher(std::vector<int> &nums, int n) {
   job_list.resize(0);
   struct Job job;
 
-  for (int i = 0; i < 8; i++) {
+  std::vector<struct Range> range_list(16);
+  range_list.at(1).lb = 0;
+  range_list.at(1).hb = nums.size() - 1;
+  range_list.at(1).mid = (range_list.at(1).lb + range_list.at(1).hb) / 2;
+  for (int i = 2; i <= 15; i++) {
+    if (i % 2) {
+      range_list.at(i).lb = range_list.at(i / 2).lb;
+      range_list.at(i).hb = range_list.at(i / 2).mid;
+    } else {
+      range_list.at(i).lb = range_list.at(i / 2).mid + 1;
+      range_list.at(i).hb = range_list.at(i / 2).hb;
+    }
+    range_list.at(i).mid = (range_list.at(i).lb + range_list.at(i).hb) / 2;
+  }
+
+  for (int i = 8; i <= 15; i++) {
     job.is_taken = false;
-    job.lb = (nums.size() - 1) * i / 8;
-    job.hb = (nums.size() - 1) * (i + 1) / 8 - 1;
-    job.id = i + 8;
+    job.lb = range_list.at(i).lb;
+    job.hb = range_list.at(i).hb;
+    job.id = i;
     job.sort_type = 0;
     sem_wait(&mutux_job_list);
     job_list.push_back(job);
@@ -115,41 +141,16 @@ void job_dispatcher(std::vector<int> &nums, int n) {
 
   for (int remain_jobs = 15; remain_jobs >= 1; remain_jobs--) {
     sem_wait(&is_job_done);
+    sem_wait(&mutux_check_list);
     for (int i = 7; i >= 1; i--) {
       if (check_list.at(i * 2) && check_list.at(i * 2 + 1)) {
         job.is_taken = false;
-        switch (i) {
-        case 1:
-          job.lb = 0;
-          job.mid = (nums.size() - 1) * 4 / 8;
-          job.hb = (nums.size() - 1) * 8 / 8;
-        case 2:
-          job.lb = 0;
-          job.mid = (nums.size() - 1) * 2 / 8;
-          job.hb = (nums.size() - 1) * 4 / 8;
-        case 3:
-          job.lb = (nums.size() - 1) * 4 / 8 + 1;
-          job.mid = (nums.size() - 1) * 6 / 8;
-          job.hb = (nums.size() - 1) * 8 / 8;
-        case 4:
-          job.lb = 0;
-          job.mid = (nums.size() - 1) * 1 / 8;
-          job.hb = (nums.size() - 1) * 2 / 8;
-        case 5:
-          job.lb = (nums.size() - 1) * 2 / 8 + 1;
-          job.mid = (nums.size() - 1) * 3 / 8;
-          job.hb = (nums.size() - 1) * 4 / 8;
-        case 6:
-          job.lb = (nums.size() - 1) * 4 / 8 + 1;
-          job.mid = (nums.size() - 1) * 5 / 8;
-          job.hb = (nums.size() - 1) * 6 / 8;
-        case 7:
-          job.lb = (nums.size() - 1) * 6 / 8 + 1;
-          job.mid = (nums.size() - 1) * 7 / 8;
-          job.hb = (nums.size() - 1) * 8 / 8;
-        }
+        job.lb = range_list.at(i).lb;
+        job.mid = range_list.at(i).mid;
+        job.hb = range_list.at(i).hb;
         job.id = i;
         job.sort_type = 1;
+
         sem_wait(&mutux_job_list);
         job_list.push_back(job);
         sem_post(&mutux_job_list);
@@ -157,10 +158,9 @@ void job_dispatcher(std::vector<int> &nums, int n) {
 
         check_list.at(i * 2) = false;
         check_list.at(i * 2 + 1) = false;
-
-        break;
       }
     }
+    sem_post(&mutux_check_list);
   }
 
   std::ofstream outfile("output1.txt");
@@ -214,6 +214,7 @@ int main(int argc, char **argv) {
     sem_init(&is_job_ready, 0, 0);
     sem_init(&is_job_done, 0, 0);
     sem_init(&mutux_job_list, 0, 1);
+    sem_init(&mutux_check_list, 0, 1);
 
     pthread_t tid;
     struct Args args;
