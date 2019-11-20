@@ -174,7 +174,7 @@ void job_dispatcher(std::vector<int> &nums, std::vector<struct Job> &job_list,
 
   // output the nums to file
   std::stringstream ss;
-  ss << "output" << n << ".txt";
+  ss << "output_" << n << ".txt";
   std::string file_name = ss.str();
   std::ofstream outfile(file_name);
   print_nums(outfile, nums);
@@ -199,12 +199,8 @@ void sort_with_n_thread(std::vector<int> &nums,
 }
 
 int main(int argc, char **argv) {
-  // get file name
-  std::string file_name;
-  std::cout << "Enter input file name: ";
-  std::cin >> file_name;
-
   // open the file
+  std::string file_name = "input.txt";
   std::ifstream infile(file_name);
   if (infile.good()) { // if file exist
     int cnt, idx = 0;
