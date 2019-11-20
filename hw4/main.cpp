@@ -53,6 +53,7 @@ void print_nums(std::ofstream &fst, std::vector<int> &nums) {
       fst << ' ' << nums.at(i);
     }
   }
+  fst << '\n';
 }
 
 void bubble_sort(std::vector<int> *nums, int lb, int ub) {
