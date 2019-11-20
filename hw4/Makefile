@@ -7,7 +7,7 @@ GEN_CPP = gen_input.cpp
 GEN_EXE = gen_input
 
 INPUT_SIZE = 1000000
-INPUT_FILE = input
+INPUT_FILE = input.txt
 OUTPUT_FILES = output*.txt
 
 
