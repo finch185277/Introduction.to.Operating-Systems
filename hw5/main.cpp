@@ -13,7 +13,6 @@ public GitHub repository or a public web page.
 #include <iomanip>
 #include <iostream>
 #include <map>
-#include <sstream>
 #include <unordered_map>
 #include <vector>
 
@@ -38,7 +37,7 @@ void LFU(std::vector<int> &history, int nframe) {
                  freqs.find(search->second.first)->second.first) {
         freqs.find(search->second.first)->second.first =
             freqs.find(search->second.first)->second.first->next;
-        freqs.find(search->second.first)->second.second->prev = nullptr;
+        freqs.find(search->second.first)->second.first->prev = nullptr;
       } else if (search->second.second ==
                  freqs.find(search->second.first)->second.second) {
         freqs.find(search->second.first)->second.second =
@@ -72,21 +71,24 @@ void LFU(std::vector<int> &history, int nframe) {
       miss++;
       if (pages.size() == nframe) {
         struct Node *victim = freqs.begin()->second.second;
-        if (freqs.begin()->second.first != freqs.begin()->second.second) {
+
+        if (freqs.begin()->second.first == freqs.begin()->second.second) {
+          freqs.erase(freqs.begin()->first);
+        } else {
           freqs.begin()->second.second = freqs.begin()->second.second->prev;
           freqs.begin()->second.second->next = nullptr;
         }
+
         pages.erase(victim->id);
-        if (freqs.begin()->second.first == freqs.begin()->second.second) {
-          freqs.erase(freqs.begin()->first);
-        }
         delete victim;
       }
+
       if (freqs.count(1) == 0) {
         struct Node *mru = nullptr, *lru = nullptr;
         freqs.insert(std::pair<int, std::pair<struct Node *, struct Node *>>(
             1, std::pair<struct Node *, struct Node *>(mru, lru)));
       }
+
       auto freq = freqs.find(1);
       struct Node *node = new struct Node;
       node->id = *page;
