@@ -12,6 +12,7 @@ public GitHub repository or a public web page.
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
@@ -22,27 +23,112 @@ struct Node {
   struct Node *next;
 };
 
+void LFU(std::vector<int> &history, int nframe) {
+  int hit = 0, miss = 0;
+  std::unordered_map<int, std::pair<int, struct Node *>> pages;
+  std::map<int, std::pair<struct Node *, struct Node *>> freqs;
+  for (auto page = history.begin(); page != history.end(); page++) {
+    auto search = pages.find(*page);
+    if (search != pages.end()) {
+      hit++;
+      if (freqs.find(search->second.first)->second.first ==
+          freqs.find(search->second.first)->second.second) {
+        freqs.erase(search->second.first);
+      } else if (search->second.second ==
+                 freqs.find(search->second.first)->second.first) {
+        freqs.find(search->second.first)->second.first =
+            freqs.find(search->second.first)->second.first->next;
+        freqs.find(search->second.first)->second.second->prev = nullptr;
+      } else if (search->second.second ==
+                 freqs.find(search->second.first)->second.second) {
+        freqs.find(search->second.first)->second.second =
+            freqs.find(search->second.first)->second.second->prev;
+        freqs.find(search->second.first)->second.second->next = nullptr;
+      } else {
+        search->second.second->prev->next = search->second.second->next;
+        search->second.second->next->prev = search->second.second->prev;
+      }
+
+      if (freqs.count(search->second.first + 1) == 0) {
+        struct Node *mru = nullptr, *lru = nullptr;
+        freqs.insert(std::pair<int, std::pair<struct Node *, struct Node *>>(
+            search->second.first + 1,
+            std::pair<struct Node *, struct Node *>(mru, lru)));
+      }
+
+      auto freq = freqs.find(search->second.first + 1);
+      search->second.second->prev = nullptr;
+      search->second.second->next = nullptr;
+      if (freq->second.first == nullptr && freq->second.second == nullptr) {
+        freq->second.first = search->second.second;
+        freq->second.second = search->second.second;
+      } else {
+        freq->second.first->prev = search->second.second;
+        search->second.second->next = freq->second.first;
+        freq->second.first = freq->second.first->prev;
+      }
+      search->second.first++;
+    } else {
+      miss++;
+      if (pages.size() == nframe) {
+        struct Node *victim = freqs.begin()->second.second;
+        if (freqs.begin()->second.first != freqs.begin()->second.second) {
+          freqs.begin()->second.second = freqs.begin()->second.second->prev;
+          freqs.begin()->second.second->next = nullptr;
+        }
+        pages.erase(victim->id);
+        if (freqs.begin()->second.first == freqs.begin()->second.second) {
+          freqs.erase(freqs.begin()->first);
+        }
+        delete victim;
+      }
+      if (freqs.count(1) == 0) {
+        struct Node *mru = nullptr, *lru = nullptr;
+        freqs.insert(std::pair<int, std::pair<struct Node *, struct Node *>>(
+            1, std::pair<struct Node *, struct Node *>(mru, lru)));
+      }
+      auto freq = freqs.find(1);
+      struct Node *node = new struct Node;
+      node->id = *page;
+      node->prev = nullptr;
+      node->next = nullptr;
+      if (freq->second.first == nullptr && freq->second.second == nullptr) {
+        freq->second.first = node;
+        freq->second.second = node;
+      } else {
+        freq->second.first->prev = node;
+        node->next = freq->second.first;
+        freq->second.first = freq->second.first->prev;
+      }
+      pages.insert(std::pair<int, std::pair<int, struct Node *>>(
+          *page, std::pair<int, struct Node *>(1, node)));
+    }
+  }
+  std::cout << nframe << "\t" << hit << "\t\t" << miss << "\t\t" << std::fixed
+            << std::setprecision(10) << (double)miss / (hit + miss) << "\n";
+  return;
+}
+
 void LRU(std::vector<int> &history, int nframe) {
   int hit = 0, miss = 0;
-  struct Node *lru = nullptr, *mru = nullptr;
+  struct Node *mru = nullptr, *lru = nullptr;
   std::unordered_map<int, struct Node *> pages;
   for (auto page = history.begin(); page != history.end(); page++) {
     auto search = pages.find(*page);
     if (search != pages.end()) {
       hit++;
-      struct Node *node = search->second;
-      if (node == mru) {
+      if (search->second == mru) {
         continue;
       }
-      if (node == lru) {
+      if (search->second == lru) {
         lru = lru->prev;
         lru->next = nullptr;
       } else {
-        node->prev->next = node->next;
-        node->next->prev = node->prev;
+        search->second->prev->next = search->second->next;
+        search->second->next->prev = search->second->prev;
       }
-      mru->prev = node;
-      node->next = mru;
+      mru->prev = search->second;
+      search->second->next = mru;
       mru = mru->prev;
     } else {
       miss++;
@@ -81,6 +167,20 @@ int main(int argc, char **argv) {
     int page;
     while (infile >> page)
       history.push_back(page);
+
+    auto lfu_start = std::chrono::high_resolution_clock::now();
+    std::cout << "LFU policy:\n";
+    std::cout << "Frame\tHit\t\tMiss\t\tPage fault ratio\n";
+    LFU(history, 64);
+    LFU(history, 128);
+    LFU(history, 256);
+    LFU(history, 512);
+    auto lfu_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> lfu_time = lfu_end - lfu_start;
+    std::cout << "Total elapsed time " << std::fixed << std::setprecision(4)
+              << lfu_time.count() / 1000 << " sec\n";
+
+    std::cout << '\n';
 
     auto lru_start = std::chrono::high_resolution_clock::now();
     std::cout << "LRU policy:\n";
