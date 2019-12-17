@@ -171,7 +171,7 @@ void LRU(std::vector<int> &history, int nframe) {
     } else {
       miss++;
 
-      // if frame if full
+      // if frame is full
       if (pages.size() == nframe) {
         struct Node *victim = lru;
         lru = lru->prev;
