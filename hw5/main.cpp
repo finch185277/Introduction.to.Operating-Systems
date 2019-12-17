@@ -32,24 +32,19 @@ void LFU(std::vector<int> &history, int nframe) {
       hit++;
 
       // re-order current freq-list
-      if (freqs.find(search->second.first)->second.first ==
-          freqs.find(search->second.first)->second.second) {
+      auto freq = freqs.find(search->second.first);
+      if (freq->second.first == freq->second.second) {
         // only one node in freq-list
         freqs.erase(search->second.first);
-      } else if (search->second.second ==
-                 freqs.find(search->second.first)->second.first) {
+      } else if (search->second.second == freq->second.first) {
         // node is head(MRU) of freq-list
-        freqs.find(search->second.first)->second.first =
-            freqs.find(search->second.first)->second.first->next;
-        freqs.find(search->second.first)->second.first->prev = nullptr;
-      } else if (search->second.second ==
-                 freqs.find(search->second.first)->second.second) {
+        freq->second.first = freq->second.first->next;
+        freq->second.first->prev = nullptr;
+      } else if (search->second.second == freq->second.second) {
         // node is tail (LRU) of freq-list
-        freqs.find(search->second.first)->second.second =
-            freqs.find(search->second.first)->second.second->prev;
-        freqs.find(search->second.first)->second.second->next = nullptr;
-      } else {
-        // node in mid of freq-list
+        freq->second.second = freq->second.second->prev;
+        freq->second.second->next = nullptr;
+      } else { // node in mid of freq-list
         search->second.second->prev->next = search->second.second->next;
         search->second.second->next->prev = search->second.second->prev;
       }
@@ -64,7 +59,7 @@ void LFU(std::vector<int> &history, int nframe) {
       }
 
       // add node to upper-freq
-      auto freq = freqs.find(search->second.first + 1);
+      freq = freqs.find(search->second.first + 1);
       search->second.second->prev = nullptr;
       search->second.second->next = nullptr;
       if (freq->second.first == nullptr && freq->second.second == nullptr) {
