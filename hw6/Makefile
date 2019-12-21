@@ -12,7 +12,7 @@ all: $(RAW_FILES)
 
 .PHONY: test clean
 
-test:
+test: all
 	./demo.sh $(EXEC_FILE)
 
 clean:
