@@ -8,7 +8,7 @@ OUTPUT_FILES = output*.txt
 
 
 all: $(RAW_FILES)
-	$(CXX) $(EXEC_FILE) $^  $(ARG)
+	$(CXX) -o $(EXEC_FILE) $^ $(ARG)
 
 .PHONY: test clean
 
