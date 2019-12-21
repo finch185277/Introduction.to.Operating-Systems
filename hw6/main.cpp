@@ -21,16 +21,16 @@ int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
   filler(buffer, "..", NULL, 0);
 
   char *file_name;
-  memcpy(file_name, path, 100);
+  strncpy(file_name, path, 100);
   filler(buffer, file_name, NULL, 0);
 
   return 0;
 }
 
 int my_getattr(const char *path, struct stat *st) {
-  st->st_uid = path + 108;
-  st->st_gid = path + 116;
-  st->st_mtime = path + 136;
+  strncpy(st->st_uid, path + 108, 8);
+  strncpy(st->st_gid, path + 116, 8);
+  strncpy(st->st_mtime, path + 136, 12);
 
   if (strcmp(path, "/") == 0) {
     st->st_mode = S_IFDIR | 0755;
@@ -38,7 +38,7 @@ int my_getattr(const char *path, struct stat *st) {
   } else {
     st->st_mode = S_IFREG | 0644;
     st->st_nlink = 1;
-    st->st_size = path + 124;
+    strncpy(st->st_size, path + 124, 12);
   }
 
   return 0;
