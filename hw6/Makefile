@@ -1,5 +1,5 @@
 CXX = gcc
-ARG = -O3 -std=c++17 pkg-config fuse --cflags --libs
+ARG = -O3 -std=c++17 `pkg-config fuse --cflags --libs`
 RAW_FILES = main.cpp
 EXEC_FILE = main
 
