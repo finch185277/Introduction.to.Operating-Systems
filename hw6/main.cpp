@@ -38,7 +38,7 @@ struct tar_file {
 
   std::vector<char> contents;
 
-  size_t get_content_size() { return std::stoi(size, 0, 8); }
+  size_t get_content_size() { return std::strtol(size, nullptr, 8); }
 
   size_t get_padding_size() {
     auto file_size = get_content_size();
@@ -133,13 +133,14 @@ int main(int argc, char *argv[]) {
 
   for (;;) {
     struct tar_file tfile;
-    read(fd, &tfile, TAR_BLOCK_SIZE);
+    int nread;
+    nread = read(fd, &tfile, TAR_BLOCK_SIZE);
 
     if (memcmp(&tfile, null_block, TAR_BLOCK_SIZE) == 0)
       break;
 
     tfile.contents.resize(tfile.get_content_size());
-    read(fd, &tfile.contents.front(), tfile.get_content_size());
+    nread = read(fd, &tfile.contents.front(), tfile.get_content_size());
 
     entries.emplace_back(tfile.name, tfile, nullptr, offset++);
 
