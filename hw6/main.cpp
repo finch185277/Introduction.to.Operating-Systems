@@ -83,14 +83,18 @@ int my_getattr(const char *path, struct stat *st) {
   auto itr =
       std::find_if(entries.begin(), entries.end(), find_entry(file_name));
 
-  if (file_name == "/") {
-    st->st_mode = S_IFDIR | 0755;
-    st->st_nlink = 2;
-    st->st_size = 0;
+  if (itr == entries.end()) {
+    return -1;
   } else {
-    st->st_mode = S_IFREG | 0644;
-    st->st_nlink = 1;
-    st->st_size = itr->tfile.get_content_size();
+    if (file_name == "/") {
+      st->st_mode = S_IFDIR | 0755;
+      st->st_nlink = 2;
+      st->st_size = 0;
+    } else {
+      st->st_mode = S_IFREG | 0644;
+      st->st_nlink = 1;
+      st->st_size = itr->tfile.get_content_size();
+    }
   }
 
   return 0;
@@ -101,7 +105,7 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
   std::string file_name(path);
   auto itr =
       std::find_if(entries.begin(), entries.end(), find_entry(file_name));
-  if (itr = entries.end()) {
+  if (itr == entries.end()) {
     return -1;
   } else {
     int read_size = itr->tfile.contents.size() - (size + offset);
