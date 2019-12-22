@@ -38,6 +38,7 @@ struct tar_file {
   char minor_dev[8];
   char padding[167];
 
+  // content
   std::vector<char> contents;
 
   size_t get_content_size() { return std::strtol(size, nullptr, 8); }
@@ -48,42 +49,24 @@ struct tar_file {
   }
 };
 
-struct fuse_entry {
+struct find_file : std::unary_function<struct tar_file, bool> {
   std::string name;
-  struct tar_file tfile;
-  struct stat *st;
-  off_t offset;
-  fuse_entry() {}
-  fuse_entry(std::string name, struct stat *st, off_t offset)
-      : name(name), st(st), offset(offset){};
-  fuse_entry(std::string name, struct tar_file tfile, struct stat *st,
-             off_t offset)
-      : name(name), tfile(tfile), st(st), offset(offset){};
-};
-
-struct find_entry : std::unary_function<struct fuse_entry, bool> {
-  std::string name;
-  find_entry(std::string name) : name(name) {}
-  bool operator()(const struct fuse_entry &entry) const {
-    return entry.name == name;
+  find_file(std::string name) : name(name) {}
+  bool operator()(const struct tar_file &tfile) const {
+    return tfile.name == name;
   }
 };
 
-std::vector<fuse_entry> entries;
+std::vector<tar_file> entries;
 
 int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi) {
-
-  if (offset < entries.size())
-    filler(buffer, entries[offset].name.c_str(), entries[offset].st, 0);
-
   return 0;
 }
 
 int my_getattr(const char *path, struct stat *st) {
   std::string file_name(path);
-  auto itr =
-      std::find_if(entries.begin(), entries.end(), find_entry(file_name));
+  auto itr = std::find_if(entries.begin(), entries.end(), find_file(file_name));
 
   st->st_uid = getuid();
   st->st_gid = getgid();
@@ -100,7 +83,7 @@ int my_getattr(const char *path, struct stat *st) {
     } else {
       st->st_mode = S_IFREG | 0777;
       st->st_nlink = 1;
-      st->st_size = itr->tfile.get_content_size();
+      st->st_size = itr->get_content_size();
     }
   }
 
@@ -110,17 +93,16 @@ int my_getattr(const char *path, struct stat *st) {
 int my_read(const char *path, char *buffer, size_t size, off_t offset,
             struct fuse_file_info *fi) {
   std::string file_name(path);
-  auto itr =
-      std::find_if(entries.begin(), entries.end(), find_entry(file_name));
+  auto itr = std::find_if(entries.begin(), entries.end(), find_file(file_name));
   if (itr == entries.end()) {
     return -1;
   } else {
-    int read_size = itr->tfile.contents.size() - (size + offset);
+    int read_size = itr->contents.size() - (size + offset);
     if (read_size > 0) {
-      memcpy(buffer, &itr->tfile.contents[offset], size);
+      memcpy(buffer, &itr->contents[offset], size);
       return size;
     } else {
-      memcpy(buffer, &itr->tfile.contents[offset], -read_size);
+      memcpy(buffer, &itr->contents[offset], -read_size);
       return -read_size;
     }
   }
@@ -129,11 +111,6 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
 static struct fuse_operations op;
 
 int main(int argc, char *argv[]) {
-  int offset = 1;
-
-  entries.emplace_back(std::string(".."), nullptr, offset++);
-  entries.emplace_back(std::string("."), nullptr, offset++);
-
   std::ifstream infile;
   infile.open("test.tar");
 
@@ -169,9 +146,9 @@ int main(int argc, char *argv[]) {
       tfile.contents.emplace_back(c);
     }
 
-    entries.emplace_back(tfile.name, tfile, nullptr, offset++);
-    printf("[main] Get file: %-20s, size: %-5d\n", tfile.name,
-           (int)tfile.get_content_size());
+    entries.emplace_back(tfile);
+    printf("[main] Get file: %-20s, size: %-5d, mode: %-10s\n", tfile.name,
+           (int)tfile.get_content_size(), tfile.mode);
 
     infile.seekg(tfile.get_padding_size(), std::ios_base::cur);
   }
