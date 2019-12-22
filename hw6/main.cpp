@@ -61,6 +61,10 @@ std::vector<tar_file> entries;
 
 int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi) {
+  std::string file_name(path);
+  filler(buffer, ".", nullptr, 0);
+  filler(buffer, "..", nullptr, 0);
+  // filler(buffer, "path", nullptr, 0);
   return 0;
 }
 
@@ -72,10 +76,8 @@ int my_getattr(const char *path, struct stat *st) {
   st->st_gid = getgid();
 
   if (itr == entries.end()) {
-    printf("[getattr] no such file: %s\n", path);
-    return -1;
+    return -ENOENT;
   } else {
-    printf("[getattr] file exist: %s\n", path);
     if (file_name == "/") {
       st->st_mode = S_IFDIR | 0777;
       st->st_nlink = 2;
@@ -95,14 +97,16 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
   std::string file_name(path);
   auto itr = std::find_if(entries.begin(), entries.end(), find_file(file_name));
   if (itr == entries.end()) {
-    return -1;
+    return -ENOENT;
   } else {
     int read_size = itr->contents.size() - (size + offset);
     if (read_size > 0) {
-      memcpy(buffer, &itr->contents[offset], size);
+      std::copy(&itr->contents.at(offset), &itr->contents.at(offset + size),
+                buffer);
       return size;
     } else {
-      memcpy(buffer, &itr->contents[offset], -read_size);
+      std::copy(&itr->contents.at(offset),
+                &itr->contents.at(offset + (-read_size)), buffer);
       return -read_size;
     }
   }
@@ -116,6 +120,10 @@ int main(int argc, char *argv[]) {
 
   char null_block[TAR_BLOCK_SIZE];
   memset(null_block, 0, sizeof(null_block));
+
+  struct tar_file top;
+  sprintf(top.name, "/");
+  entries.emplace_back(top);
 
   for (;;) {
     struct tar_file tfile;
@@ -147,9 +155,6 @@ int main(int argc, char *argv[]) {
     }
 
     entries.emplace_back(tfile);
-    printf("[main] Get file: %-20s, size: %-5d, mode: %-10s\n", tfile.name,
-           (int)tfile.get_content_size(), tfile.mode);
-
     infile.seekg(tfile.get_padding_size(), std::ios_base::cur);
   }
 
