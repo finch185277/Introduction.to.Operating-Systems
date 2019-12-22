@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
       break;
 
     tfile.contents.resize(tfile.get_content_size());
-    read(fd, tfile.contents.begin(), tfile.get_content_size());
+    read(fd, &tfile.contents.front(), tfile.get_content_size());
 
     entries.emplace_back(tfile.name, tfile, nullptr, offset++);
 
