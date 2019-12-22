@@ -14,6 +14,8 @@ public GitHub repository or a public web page.
 #include <unistd.h>
 
 #define TAR_BLOCK_SIZE 512
+#include <algorithm>
+#include <string>
 #include <vector>
 
 struct tar_file {
@@ -60,8 +62,8 @@ struct fuse_entry {
 struct find_entry : std::unary_function<struct fuse_entry, bool> {
   std::string name;
   find_entry(std::string name) : name(name) {}
-  bool operator()(struct const &fuse_entry) const {
-    return fuse_entry.name == name;
+  bool operator()(const struct &fuse_entry entry) const {
+    return entry.name == name;
   }
 };
 
@@ -105,12 +107,12 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
   if (itr = entries.end()) {
     return -1;
   } else {
-    read_size = itr->tfile.contents.size() - (size + offset);
+    int read_size = itr->tfile.contents.size() - (size + offset);
     if (read_size > 0) {
-      std::memcpy(buffer, &itr->tfile.contents[offset], size);
+      memcpy(buffer, &itr->tfile.contents[offset], size);
       return size;
     } else {
-      std::memcpy(buffer, &itr->tfile.contents[offset], -read_size);
+      memcpy(buffer, &itr->tfile.contents[offset], -read_size);
       return -read_size;
     }
   }
