@@ -62,7 +62,7 @@ struct fuse_entry {
 struct find_entry : std::unary_function<struct fuse_entry, bool> {
   std::string name;
   find_entry(std::string name) : name(name) {}
-  bool operator()(const struct &fuse_entry entry) const {
+  bool operator()(const struct fuse_entry &entry) const {
     return entry.name == name;
   }
 };
@@ -82,9 +82,6 @@ int my_getattr(const char *path, struct stat *st) {
   std::string file_name(path);
   auto itr =
       std::find_if(entries.begin(), entries.end(), find_entry(file_name));
-
-  st->st_uid = itr->tfile.uid;
-  st->st_gid = itr->tfile.gid;
 
   if (file_name == "/") {
     st->st_mode = S_IFDIR | 0755;
