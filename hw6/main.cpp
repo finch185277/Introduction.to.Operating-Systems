@@ -10,11 +10,13 @@ public GitHub repository or a public web page.
 
 #define FUSE_USE_VERSION 30
 #include <fuse.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
 #define TAR_BLOCK_SIZE 512
 #include <algorithm>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -42,7 +44,7 @@ struct tar_file {
 
   size_t get_padding_size() {
     auto file_size = get_content_size();
-    return TAR_BLOCK_SIZE - (file_size % TAR_BLOCK_SIZE);
+    return (TAR_BLOCK_SIZE - (file_size % TAR_BLOCK_SIZE)) % TAR_BLOCK_SIZE;
   }
 };
 
@@ -83,15 +85,20 @@ int my_getattr(const char *path, struct stat *st) {
   auto itr =
       std::find_if(entries.begin(), entries.end(), find_entry(file_name));
 
+  st->st_uid = getuid();
+  st->st_gid = getgid();
+
   if (itr == entries.end()) {
+    printf("[getattr] no such file: %s\n", path);
     return -1;
   } else {
+    printf("[getattr] file exist: %s\n", path);
     if (file_name == "/") {
-      st->st_mode = S_IFDIR | 0755;
+      st->st_mode = S_IFDIR | 0777;
       st->st_nlink = 2;
       st->st_size = 0;
     } else {
-      st->st_mode = S_IFREG | 0644;
+      st->st_mode = S_IFREG | 0777;
       st->st_nlink = 1;
       st->st_size = itr->tfile.get_content_size();
     }
@@ -127,27 +134,47 @@ int main(int argc, char *argv[]) {
   entries.emplace_back(std::string(".."), nullptr, offset++);
   entries.emplace_back(std::string("."), nullptr, offset++);
 
-  int fd = open("test.tar", O_RDONLY);
+  std::ifstream infile;
+  infile.open("test.tar");
+
   char null_block[TAR_BLOCK_SIZE];
   memset(null_block, 0, sizeof(null_block));
 
   for (;;) {
     struct tar_file tfile;
-    int nread;
-    nread = read(fd, &tfile, TAR_BLOCK_SIZE);
+    infile.read((char *)&tfile.name, sizeof(tfile.name));
+    infile.read((char *)&tfile.mode, sizeof(tfile.mode));
+    infile.read((char *)&tfile.uid, sizeof(tfile.uid));
+    infile.read((char *)&tfile.gid, sizeof(tfile.gid));
+    infile.read((char *)&tfile.size, sizeof(tfile.size));
+    infile.read((char *)&tfile.modify_time, sizeof(tfile.modify_time));
+    infile.read((char *)&tfile.checksum, sizeof(tfile.checksum));
+    infile.read((char *)&tfile.link_flag, sizeof(tfile.link_flag));
+    infile.read((char *)&tfile.link_name, sizeof(tfile.link_name));
+    infile.read((char *)&tfile.magic, sizeof(tfile.magic));
+    infile.read((char *)&tfile.user_name, sizeof(tfile.user_name));
+    infile.read((char *)&tfile.group_name, sizeof(tfile.group_name));
+    infile.read((char *)&tfile.major_dev, sizeof(tfile.major_dev));
+    infile.read((char *)&tfile.minor_dev, sizeof(tfile.minor_dev));
+    infile.read((char *)&tfile.padding, sizeof(tfile.padding));
 
     if (memcmp(&tfile, null_block, TAR_BLOCK_SIZE) == 0)
       break;
 
-    tfile.contents.resize(tfile.get_content_size());
-    nread = read(fd, &tfile.contents.front(), tfile.get_content_size());
+    int content_size = tfile.get_content_size();
+    tfile.contents.resize(content_size);
+    while (content_size--) {
+      char c;
+      infile.get(c);
+      tfile.contents.emplace_back(c);
+    }
 
     entries.emplace_back(tfile.name, tfile, nullptr, offset++);
+    printf("[main] Get file: %-20s, size: %-5d\n", tfile.name,
+           (int)tfile.get_content_size());
 
-    lseek(fd, tfile.get_padding_size(), SEEK_CUR);
+    infile.seekg(tfile.get_padding_size(), std::ios_base::cur);
   }
-
-  close(fd);
 
   memset(&op, 0, sizeof(op));
   op.getattr = my_getattr;
