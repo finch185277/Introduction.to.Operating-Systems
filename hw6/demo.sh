@@ -10,7 +10,7 @@ rm -f ${OUTPUT_DIR}/* test.tar
 
 cp basic/test.tar test.tar
 
-${PROGRAM_PATH} -f tarfs > /dev/null & 
+${PROGRAM_PATH} -f tarfs > /dev/null &
 PROGRAM_PID=$!
 sleep 1
 for i in $( seq 1 4 ); do
@@ -31,7 +31,7 @@ rm -f test.tar
 
 cp bonus/test.tar test.tar
 
-${PROGRAM_PATH} -f tarfs > /dev/null & 
+${PROGRAM_PATH} -f tarfs > /dev/null &
 PROGRAM_PID=$!
 sleep 1
 for i in $( seq 5 6 ); do
