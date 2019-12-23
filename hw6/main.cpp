@@ -53,7 +53,7 @@ struct find_file : std::unary_function<struct tar_file, bool> {
   std::string name;
   find_file(std::string name) : name(name) {}
   bool operator()(const struct tar_file &tfile) const {
-    return tfile.name == name;
+    return tfile.name == name.substr(1, name.size());
   }
 };
 
@@ -62,26 +62,26 @@ std::vector<tar_file> entries;
 int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi) {
   std::string file_name(path);
-  filler(buffer, ".", nullptr, 0);
-  filler(buffer, "..", nullptr, 0);
-  // filler(buffer, "path", nullptr, 0);
+  filler(buffer, "blue.txt", nullptr, 0);
   return 0;
 }
 
 int my_getattr(const char *path, struct stat *st) {
   std::string file_name(path);
-  auto itr = std::find_if(entries.begin(), entries.end(), find_file(file_name));
 
   st->st_uid = getuid();
   st->st_gid = getgid();
 
-  if (itr == entries.end()) {
-    return -ENOENT;
+  if (file_name == "/") {
+    st->st_mode = S_IFDIR | 0777;
+    st->st_nlink = 2;
+    st->st_size = 0;
   } else {
-    if (file_name == "/") {
-      st->st_mode = S_IFDIR | 0777;
-      st->st_nlink = 2;
-      st->st_size = 0;
+    auto itr =
+        std::find_if(entries.begin(), entries.end(), find_file(file_name));
+    if (itr == entries.end()) {
+      printf("[getattr] %s not found\n", path);
+      return -ENOENT;
     } else {
       st->st_mode = S_IFREG | 0777;
       st->st_nlink = 1;
@@ -95,6 +95,7 @@ int my_getattr(const char *path, struct stat *st) {
 int my_read(const char *path, char *buffer, size_t size, off_t offset,
             struct fuse_file_info *fi) {
   std::string file_name(path);
+
   auto itr = std::find_if(entries.begin(), entries.end(), find_file(file_name));
   if (itr == entries.end()) {
     return -ENOENT;
@@ -153,6 +154,8 @@ int main(int argc, char *argv[]) {
       infile.get(c);
       tfile.contents.emplace_back(c);
     }
+
+    printf("[main] {%s}, size %d\n", tfile.name, (int)tfile.get_content_size());
 
     entries.emplace_back(tfile);
     infile.seekg(tfile.get_padding_size(), std::ios_base::cur);
