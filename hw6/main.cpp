@@ -42,9 +42,6 @@ struct tar_file {
   // content
   std::vector<char> contents;
 
-  // sub files
-  std::vector<std::string> sub_files;
-
   size_t get_content_size() { return std::strtol(size, nullptr, 8); }
 
   size_t get_padding_size() {
@@ -54,15 +51,27 @@ struct tar_file {
 };
 
 std::unordered_map<std::string, struct tar_file> entries;
+std::unordered_map<std::string, std::vector<std::string>> subfiles;
 
 int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi) {
+  printf("[readdir] {%s}\n", path);
   std::string file_name(path);
-  filler(buffer, "blue.txt", nullptr, 0);
+
+  auto itr = subfiles.find(file_name);
+  if (itr != subfiles.end())
+    for (auto sub = itr->second.begin(); sub != itr->second.end(); sub++) {
+      printf("[readdir] get sub: {%s}\n", sub->c_str());
+      filler(buffer, sub->c_str(), nullptr, 0);
+    }
+  else
+    printf("no subfile!!!\n");
+
   return 0;
 }
 
 int my_getattr(const char *path, struct stat *st) {
+  printf("[readdir] {%s}\n", path);
   std::string file_name(path);
 
   st->st_uid = getuid();
@@ -73,9 +82,9 @@ int my_getattr(const char *path, struct stat *st) {
     st->st_nlink = 2;
     st->st_size = 0;
   } else {
-    auto itr = entries.find(file_name.substr(1, file_name.size()));
+    auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
     if (itr == entries.end()) {
-      printf("[getattr] %s not found\n", path);
+      // printf("[getattr] %s not found\n", path);
       return -ENOENT;
     } else {
       st->st_mode = S_IFREG | 0777;
@@ -91,7 +100,7 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
             struct fuse_file_info *fi) {
   std::string file_name(path);
 
-  auto itr = entries.find(file_name.substr(1, file_name.size()));
+  auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
   if (itr == entries.end()) {
     return -ENOENT;
   } else {
@@ -150,7 +159,39 @@ int main(int argc, char *argv[]) {
       tfile.contents.emplace_back(c);
     }
 
-    printf("[main] {%s}, size %d\n", tfile.name, (int)tfile.get_content_size());
+    std::size_t found;
+    std::string file_name(tfile.name);
+    std::string parent, self;
+    if (file_name.back() == '/') { // directory
+      found = file_name.substr(0, file_name.size() - 1).rfind("/");
+      if (found == std::string::npos) {
+        parent = "/";
+        self = file_name.substr(0, file_name.size() - 1);
+      } else {
+        parent = "/" + file_name.substr(0, found);
+        self = file_name.substr(found + 1, file_name.size() - (found + 1));
+      }
+    } else { // regular file
+      found = file_name.rfind("/");
+      if (found == std::string::npos) {
+        parent = "/";
+        self = file_name;
+      } else {
+        parent = "/" + file_name.substr(0, found);
+        self = file_name.substr(found + 1, file_name.size() - (found + 1));
+      }
+    }
+
+    auto itr = subfiles.find(parent);
+    if (itr == subfiles.end())
+      subfiles.insert(
+          std::pair<std::string, std::vector<std::string>>(parent, {self}));
+    else
+      itr->second.emplace_back(self);
+
+    printf("[main] {%s}, size %d, found: %d, parent: {%s}, self: {%s}\n",
+           tfile.name, (int)tfile.get_content_size(), (int)found,
+           parent.c_str(), self.c_str());
 
     entries.insert(std::pair<std::string, struct tar_file>(tfile.name, tfile));
     infile.seekg(tfile.get_padding_size(), std::ios_base::cur);
