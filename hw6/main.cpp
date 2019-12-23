@@ -18,6 +18,7 @@ public GitHub repository or a public web page.
 #include <algorithm>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 struct tar_file {
@@ -41,6 +42,9 @@ struct tar_file {
   // content
   std::vector<char> contents;
 
+  // sub files
+  std::vector<std::string> sub_files;
+
   size_t get_content_size() { return std::strtol(size, nullptr, 8); }
 
   size_t get_padding_size() {
@@ -49,15 +53,7 @@ struct tar_file {
   }
 };
 
-struct find_file : std::unary_function<struct tar_file, bool> {
-  std::string name;
-  find_file(std::string name) : name(name) {}
-  bool operator()(const struct tar_file &tfile) const {
-    return tfile.name == name.substr(1, name.size());
-  }
-};
-
-std::vector<tar_file> entries;
+std::unordered_map<std::string, struct tar_file> entries;
 
 int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi) {
@@ -77,15 +73,14 @@ int my_getattr(const char *path, struct stat *st) {
     st->st_nlink = 2;
     st->st_size = 0;
   } else {
-    auto itr =
-        std::find_if(entries.begin(), entries.end(), find_file(file_name));
+    auto itr = entries.find(file_name.substr(1, file_name.size()));
     if (itr == entries.end()) {
       printf("[getattr] %s not found\n", path);
       return -ENOENT;
     } else {
       st->st_mode = S_IFREG | 0777;
       st->st_nlink = 1;
-      st->st_size = itr->get_content_size();
+      st->st_size = itr->second.get_content_size();
     }
   }
 
@@ -96,18 +91,18 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
             struct fuse_file_info *fi) {
   std::string file_name(path);
 
-  auto itr = std::find_if(entries.begin(), entries.end(), find_file(file_name));
+  auto itr = entries.find(file_name.substr(1, file_name.size()));
   if (itr == entries.end()) {
     return -ENOENT;
   } else {
-    int read_size = itr->contents.size() - (size + offset);
+    int read_size = itr->second.contents.size() - (size + offset);
     if (read_size > 0) {
-      std::copy(&itr->contents.at(offset), &itr->contents.at(offset + size),
-                buffer);
+      std::copy(&itr->second.contents.at(offset),
+                &itr->second.contents.at(offset + size), buffer);
       return size;
     } else {
-      std::copy(&itr->contents.at(offset),
-                &itr->contents.at(offset + (-read_size)), buffer);
+      std::copy(&itr->second.contents.at(offset),
+                &itr->second.contents.at(offset + (-read_size)), buffer);
       return -read_size;
     }
   }
@@ -122,9 +117,9 @@ int main(int argc, char *argv[]) {
   char null_block[TAR_BLOCK_SIZE];
   memset(null_block, 0, sizeof(null_block));
 
-  struct tar_file top;
-  sprintf(top.name, "/");
-  entries.emplace_back(top);
+  struct tar_file root;
+  sprintf(root.name, "/");
+  entries.insert(std::pair<std::string, struct tar_file>(root.name, root));
 
   for (;;) {
     struct tar_file tfile;
@@ -157,7 +152,7 @@ int main(int argc, char *argv[]) {
 
     printf("[main] {%s}, size %d\n", tfile.name, (int)tfile.get_content_size());
 
-    entries.emplace_back(tfile);
+    entries.insert(std::pair<std::string, struct tar_file>(tfile.name, tfile));
     infile.seekg(tfile.get_padding_size(), std::ios_base::cur);
   }
 
