@@ -74,12 +74,11 @@ int my_getattr(const char *path, struct stat *st) {
   printf("[readdir] {%s}\n", path);
   std::string file_name(path);
 
-  st->st_uid = getuid();
-  st->st_gid = getgid();
-
   if (file_name == "/") {
     st->st_mode = S_IFDIR | 0777;
     st->st_nlink = 2;
+    st->st_uid = getuid();
+    st->st_gid = getgid();
     st->st_size = 0;
   } else {
     auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
@@ -87,9 +86,12 @@ int my_getattr(const char *path, struct stat *st) {
       // printf("[getattr] %s not found\n", path);
       return -ENOENT;
     } else {
-      st->st_mode = S_IFREG | 0777;
+      st->st_mode = std::strtol(itr->second.mode, nullptr, 8);
       st->st_nlink = 1;
+      st->st_uid = std::strtol(itr->second.uid, nullptr, 8);
+      st->st_gid = std::strtol(itr->second.gid, nullptr, 8);
       st->st_size = itr->second.get_content_size();
+      st->st_mtime = std::strtol(itr->second.modify_time, nullptr, 8);
     }
   }
 
