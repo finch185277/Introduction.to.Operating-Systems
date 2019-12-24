@@ -42,7 +42,7 @@ struct tar_file {
   // content
   std::vector<char> contents;
 
-  size_t get_content_size() { return std::strtol(size, nullptr, 8); }
+  size_t get_content_size() { return std::stoi(size, nullptr, 8); }
 
   size_t get_padding_size() {
     auto file_size = get_content_size();
@@ -71,12 +71,11 @@ int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
 }
 
 int my_getattr(const char *path, struct stat *st) {
-  printf("[readdir] {%s}\n", path);
+  // printf("[readdir] {%s}\n", path);
   std::string file_name(path);
 
   if (file_name == "/") {
     st->st_mode = S_IFDIR | 0777;
-    st->st_nlink = 2;
     st->st_uid = getuid();
     st->st_gid = getgid();
     st->st_size = 0;
@@ -86,12 +85,12 @@ int my_getattr(const char *path, struct stat *st) {
       // printf("[getattr] %s not found\n", path);
       return -ENOENT;
     } else {
-      st->st_mode = std::strtol(itr->second.mode, nullptr, 8);
-      st->st_nlink = 1;
-      st->st_uid = std::strtol(itr->second.uid, nullptr, 8);
-      st->st_gid = std::strtol(itr->second.gid, nullptr, 8);
+      st->st_mode = std::stoi(itr->second.mode, nullptr, 8);
+      // printf("[readdir] {%s}, mode: %d\n", path, st->st_mode);
+      st->st_uid = std::stoi(itr->second.uid, nullptr, 8);
+      st->st_gid = std::stoi(itr->second.gid, nullptr, 8);
       st->st_size = itr->second.get_content_size();
-      st->st_mtime = std::strtol(itr->second.modify_time, nullptr, 8);
+      st->st_mtime = std::stoi(itr->second.modify_time, nullptr, 8);
     }
   }
 
@@ -100,20 +99,25 @@ int my_getattr(const char *path, struct stat *st) {
 
 int my_read(const char *path, char *buffer, size_t size, off_t offset,
             struct fuse_file_info *fi) {
+  // printf("[read] path: %s, size: %d\n", path, (int)size);
   std::string file_name(path);
 
   auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
   if (itr == entries.end()) {
+    // printf("[read] path: %s not found\n", path);
     return -ENOENT;
   } else {
     int read_size = itr->second.contents.size() - (size + offset);
     if (read_size > 0) {
-      std::copy(&itr->second.contents.at(offset),
-                &itr->second.contents.at(offset + size), buffer);
+      std::copy(itr->second.contents.begin() + offset,
+                itr->second.contents.begin() + offset + (size - 1), buffer);
+      // printf("[read] buffer: %s\n", buffer);
       return size;
     } else {
-      std::copy(&itr->second.contents.at(offset),
-                &itr->second.contents.at(offset + (-read_size)), buffer);
+      std::copy(itr->second.contents.begin() + offset,
+                itr->second.contents.begin() + offset + ((-read_size) - 1),
+                buffer);
+      // printf("[read] buffer: %s\n", buffer);
       return -read_size;
     }
   }
