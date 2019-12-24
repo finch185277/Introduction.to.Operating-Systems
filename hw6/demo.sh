@@ -4,13 +4,22 @@ SRC_DIR="src"
 TESTCASE_DIR="testcase"
 OUTPUT_DIR="output"
 ANSWER_DIR="answer"
+MOUNT_POINT="tarfs"
 PROGRAM_PATH=$( readlink -f $1 )
+
+if [ ! -d ${OUTPUT_DIR} ]; then
+  mkdir ${OUTPUT_DIR}
+fi
+
+if [ ! -d ${MOUNT_POINT} ]; then
+  mkdir ${MOUNT_POINT}
+fi
 
 rm -f ${OUTPUT_DIR}/* test.tar
 
 cp basic/test.tar test.tar
 
-${PROGRAM_PATH} -f tarfs > /dev/null &
+${PROGRAM_PATH} -f ${MOUNT_POINT} > /dev/null &
 PROGRAM_PID=$!
 sleep 1
 for i in $( seq 1 4 ); do
@@ -31,7 +40,7 @@ rm -f test.tar
 
 cp bonus/test.tar test.tar
 
-${PROGRAM_PATH} -f tarfs > /dev/null &
+${PROGRAM_PATH} -f ${MOUNT_POINT} > /dev/null &
 PROGRAM_PID=$!
 sleep 1
 for i in $( seq 5 6 ); do
