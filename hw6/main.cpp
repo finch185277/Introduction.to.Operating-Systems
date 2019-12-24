@@ -40,7 +40,7 @@ struct tar_file {
   char padding[167];
 
   // content
-  std::vector<char> contents;
+  char contents[30000];
 
   // st attr
   int tar_mode;
@@ -98,23 +98,25 @@ int my_getattr(const char *path, struct stat *st) {
 
 int my_read(const char *path, char *buffer, size_t size, off_t offset,
             struct fuse_file_info *fi) {
+  printf("[read] file: {%s}, size: %d, offset: %d", path, (int)size,
+         (int)offset);
   std::string file_name(path);
 
   auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
   if (itr == entries.end()) {
     return -ENOENT;
   } else {
-    int read_size = itr->second.contents.size() - (size + offset);
-    if (read_size > 0) {
-      std::copy(itr->second.contents.begin() + offset,
-                itr->second.contents.begin() + offset + (size - 1), buffer);
-      return size;
-    } else {
-      std::copy(itr->second.contents.begin() + offset,
-                itr->second.contents.begin() + offset + ((-read_size) - 1),
-                buffer);
-      return -read_size;
-    }
+    int read_size;
+    if (size <= itr->second.get_content_size() - offset)
+      read_size = size;
+    else
+      read_size = itr->second.get_content_size() - offset;
+
+    strncpy(buffer, itr->second.contents, read_size);
+
+    printf(" read_size: %d, content: %s\n", read_size, buffer);
+
+    return read_size;
   }
 }
 
@@ -154,13 +156,8 @@ int main(int argc, char *argv[]) {
       break;
 
     // read content
-    int content_size = tfile.get_content_size();
-    tfile.contents.resize(content_size);
-    while (content_size--) {
-      char c;
-      infile.get(c);
-      tfile.contents.emplace_back(c);
-    }
+    // tfile.contents = new char(tfile.get_content_size());
+    infile.read((char *)&tfile.contents, tfile.get_content_size());
 
     // translate char array to int (for st)
     if (tfile.link_flag == '5') // directory
