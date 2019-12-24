@@ -10,9 +10,7 @@ public GitHub repository or a public web page.
 
 #define FUSE_USE_VERSION 30
 #include <fuse.h>
-#include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #define TAR_BLOCK_SIZE 512
 #include <algorithm>
@@ -40,7 +38,7 @@ struct tar_file {
   char padding[167];
 
   // content
-  char contents[30000];
+  char *contents;
 
   // st attr
   int tar_mode;
@@ -77,8 +75,6 @@ int my_getattr(const char *path, struct stat *st) {
 
   if (file_name == "/") {
     st->st_mode = S_IFDIR | 0777;
-    st->st_uid = getuid();
-    st->st_gid = getgid();
     st->st_size = 0;
   } else {
     auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
@@ -98,8 +94,6 @@ int my_getattr(const char *path, struct stat *st) {
 
 int my_read(const char *path, char *buffer, size_t size, off_t offset,
             struct fuse_file_info *fi) {
-  printf("[read] file: {%s}, size: %d, offset: %d", path, (int)size,
-         (int)offset);
   std::string file_name(path);
 
   auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
@@ -112,9 +106,8 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
     else
       read_size = itr->second.get_content_size() - offset;
 
+    // copy contents into buffer
     strncpy(buffer, itr->second.contents, read_size);
-
-    printf(" read_size: %d, content: %s\n", read_size, buffer);
 
     return read_size;
   }
@@ -156,8 +149,8 @@ int main(int argc, char *argv[]) {
       break;
 
     // read content
-    // tfile.contents = new char(tfile.get_content_size());
-    infile.read((char *)&tfile.contents, tfile.get_content_size());
+    tfile.contents = new char[tfile.get_content_size()];
+    infile.read(tfile.contents, tfile.get_content_size());
 
     // translate char array to int (for st)
     if (tfile.link_flag == '5') // directory
@@ -211,10 +204,6 @@ int main(int argc, char *argv[]) {
 
       // add new entry
       entries.insert(std::pair<std::string, struct tar_file>(file_name, tfile));
-
-      printf("[main] {%s}, size %d, found: %d, parent: {%s}, self: {%s}\n",
-             file_name.c_str(), (int)tfile.get_content_size(), (int)found,
-             parent.c_str(), self.c_str());
 
     } else { // file name exist
       if (tfile.tar_mtime > entry->second.tar_mtime)
