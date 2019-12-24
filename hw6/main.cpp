@@ -62,28 +62,20 @@ std::unordered_map<std::string, std::vector<std::string>> subfiles;
 
 int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi) {
-  printf("[readdir] {%s}\n", path);
   std::string file_name(path);
-  // filler(buffer, "dir/", nullptr, 0);
 
   auto itr = subfiles.find(file_name);
   if (itr != subfiles.end())
-    for (auto sub = itr->second.begin(); sub != itr->second.end(); sub++) {
-      // printf("[readdir] get sub: {%s}\n", sub->c_str());
+    for (auto sub = itr->second.begin(); sub != itr->second.end(); sub++)
       filler(buffer, sub->c_str(), nullptr, 0);
-    }
-  else
-    printf("no subfile!!!\n");
 
   return 0;
 }
 
 int my_getattr(const char *path, struct stat *st) {
-  printf("[getattr]");
   std::string file_name(path);
 
   if (file_name == "/") {
-    printf(" / found\n");
     st->st_mode = S_IFDIR | 0777;
     st->st_uid = getuid();
     st->st_gid = getgid();
@@ -91,11 +83,9 @@ int my_getattr(const char *path, struct stat *st) {
   } else {
     auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
     if (itr == entries.end()) {
-      printf(" %s not found\n", path);
       return -ENOENT;
     } else {
       st->st_mode = itr->second.tar_mode;
-      printf(" {%s}, mode: %d\n", path, st->st_mode);
       st->st_uid = itr->second.tar_uid;
       st->st_gid = itr->second.tar_gid;
       st->st_size = itr->second.tar_size;
@@ -108,25 +98,21 @@ int my_getattr(const char *path, struct stat *st) {
 
 int my_read(const char *path, char *buffer, size_t size, off_t offset,
             struct fuse_file_info *fi) {
-  // printf("[read] path: %s, size: %d\n", path, (int)size);
   std::string file_name(path);
 
   auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
   if (itr == entries.end()) {
-    // printf("[read] path: %s not found\n", path);
     return -ENOENT;
   } else {
     int read_size = itr->second.contents.size() - (size + offset);
     if (read_size > 0) {
       std::copy(itr->second.contents.begin() + offset,
                 itr->second.contents.begin() + offset + (size - 1), buffer);
-      // printf("[read] buffer: %s\n", buffer);
       return size;
     } else {
       std::copy(itr->second.contents.begin() + offset,
                 itr->second.contents.begin() + offset + ((-read_size) - 1),
                 buffer);
-      // printf("[read] buffer: %s\n", buffer);
       return -read_size;
     }
   }
@@ -177,7 +163,10 @@ int main(int argc, char *argv[]) {
     }
 
     // translate char array to int (for st)
-    tfile.tar_mode = std::stoi(tfile.mode, nullptr, 8);
+    if (tfile.link_flag == '5') // directory
+      tfile.tar_mode = S_IFDIR | std::stoi(tfile.mode, nullptr, 8);
+    else // regular file
+      tfile.tar_mode = S_IFREG | std::stoi(tfile.mode, nullptr, 8);
     tfile.tar_uid = std::stoi(tfile.uid, nullptr, 8);
     tfile.tar_gid = std::stoi(tfile.gid, nullptr, 8);
     tfile.tar_size = tfile.get_content_size();
@@ -196,10 +185,10 @@ int main(int argc, char *argv[]) {
       std::size_t found;
       std::string parent, self;
       if (file_name.back() == '/') { // directory
-        found = file_name.substr(0, file_name.size() - 1).rfind("/");
+        found = file_name.rfind("/");
         if (found == std::string::npos) {
           parent = "/";
-          self = file_name.substr(0, file_name.size() - 1);
+          self = file_name;
         } else {
           parent = "/" + file_name.substr(0, found);
           self = file_name.substr(found + 1, file_name.size() - (found + 1));
