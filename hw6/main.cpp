@@ -18,6 +18,17 @@ public GitHub repository or a public web page.
 #include <unordered_map>
 #include <vector>
 
+// ref: https://www.onicos.com/staff/iz/formats/tar.html
+#define LF_OLDNORMAL '\0' /* Normal disk file, Unix compatible */
+#define LF_NORMAL '0'     /* Normal disk file */
+#define LF_LINK '1'       /* Link to previously dumped file */
+#define LF_SYMLINK '2'    /* Symbolic link */
+#define LF_CHR '3'        /* Character special file */
+#define LF_BLK '4'        /* Block special file */
+#define LF_DIR '5'        /* Directory */
+#define LF_FIFO '6'       /* FIFO special file */
+#define LF_CONTIG '7'     /* Contiguous file */
+
 struct tar_file {
   // header
   char name[100];
@@ -152,10 +163,29 @@ int main(int argc, char *argv[]) {
     infile.read(tfile.contents, tfile.get_content_size());
 
     // translate char array to int (for st)
-    if (tfile.link_flag == '5') // directory
-      tfile.tar_mode = S_IFDIR | std::stoi(tfile.mode, nullptr, 8);
-    else // regular file
+    switch (tfile.link_flag) {
+    case LF_OLDNORMAL: // regular file
       tfile.tar_mode = S_IFREG | std::stoi(tfile.mode, nullptr, 8);
+      break;
+    case LF_NORMAL: // regular file
+      tfile.tar_mode = S_IFREG | std::stoi(tfile.mode, nullptr, 8);
+      break;
+    case LF_DIR: // directory
+      tfile.tar_mode = S_IFDIR | std::stoi(tfile.mode, nullptr, 8);
+      break;
+    case LF_SYMLINK: // symbolic link
+      tfile.tar_mode = S_IFLNK | std::stoi(tfile.mode, nullptr, 8);
+      break;
+    case LF_CHR: // character special
+      tfile.tar_mode = S_IFCHR | std::stoi(tfile.mode, nullptr, 8);
+      break;
+    case LF_BLK: // block special
+      tfile.tar_mode = S_IFBLK | std::stoi(tfile.mode, nullptr, 8);
+      break;
+    case LF_FIFO: // FIFO special
+      tfile.tar_mode = S_IFIFO | std::stoi(tfile.mode, nullptr, 8);
+      break;
+    }
     tfile.tar_uid = std::stoi(tfile.uid, nullptr, 8);
     tfile.tar_gid = std::stoi(tfile.gid, nullptr, 8);
     tfile.tar_size = tfile.get_content_size();
