@@ -42,6 +42,13 @@ struct tar_file {
   // content
   std::vector<char> contents;
 
+  // st attr
+  int tar_mode;
+  int tar_uid;
+  int tar_gid;
+  int tar_size;
+  int tar_mtime;
+
   size_t get_content_size() { return std::stoi(size, nullptr, 8); }
 
   size_t get_padding_size() {
@@ -57,11 +64,12 @@ int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi) {
   printf("[readdir] {%s}\n", path);
   std::string file_name(path);
+  // filler(buffer, "dir/", nullptr, 0);
 
   auto itr = subfiles.find(file_name);
   if (itr != subfiles.end())
     for (auto sub = itr->second.begin(); sub != itr->second.end(); sub++) {
-      printf("[readdir] get sub: {%s}\n", sub->c_str());
+      // printf("[readdir] get sub: {%s}\n", sub->c_str());
       filler(buffer, sub->c_str(), nullptr, 0);
     }
   else
@@ -71,10 +79,11 @@ int my_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
 }
 
 int my_getattr(const char *path, struct stat *st) {
-  // printf("[readdir] {%s}\n", path);
+  printf("[getattr]");
   std::string file_name(path);
 
   if (file_name == "/") {
+    printf(" / found\n");
     st->st_mode = S_IFDIR | 0777;
     st->st_uid = getuid();
     st->st_gid = getgid();
@@ -82,15 +91,15 @@ int my_getattr(const char *path, struct stat *st) {
   } else {
     auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
     if (itr == entries.end()) {
-      // printf("[getattr] %s not found\n", path);
+      printf(" %s not found\n", path);
       return -ENOENT;
     } else {
-      st->st_mode = std::stoi(itr->second.mode, nullptr, 8);
-      // printf("[readdir] {%s}, mode: %d\n", path, st->st_mode);
-      st->st_uid = std::stoi(itr->second.uid, nullptr, 8);
-      st->st_gid = std::stoi(itr->second.gid, nullptr, 8);
-      st->st_size = itr->second.get_content_size();
-      st->st_mtime = std::stoi(itr->second.modify_time, nullptr, 8);
+      st->st_mode = itr->second.tar_mode;
+      printf(" {%s}, mode: %d\n", path, st->st_mode);
+      st->st_uid = itr->second.tar_uid;
+      st->st_gid = itr->second.tar_gid;
+      st->st_size = itr->second.tar_size;
+      st->st_mtime = itr->second.tar_mtime;
     }
   }
 
@@ -126,18 +135,18 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
 static struct fuse_operations op;
 
 int main(int argc, char *argv[]) {
+  // open the file
   std::ifstream infile;
   infile.open("test.tar");
 
+  // create blank header
   char null_block[TAR_BLOCK_SIZE];
   memset(null_block, 0, sizeof(null_block));
 
-  struct tar_file root;
-  sprintf(root.name, "/");
-  entries.insert(std::pair<std::string, struct tar_file>(root.name, root));
-
   for (;;) {
     struct tar_file tfile;
+
+    // read header
     infile.read((char *)&tfile.name, sizeof(tfile.name));
     infile.read((char *)&tfile.mode, sizeof(tfile.mode));
     infile.read((char *)&tfile.uid, sizeof(tfile.uid));
@@ -154,9 +163,11 @@ int main(int argc, char *argv[]) {
     infile.read((char *)&tfile.minor_dev, sizeof(tfile.minor_dev));
     infile.read((char *)&tfile.padding, sizeof(tfile.padding));
 
+    // check EOF
     if (memcmp(&tfile, null_block, TAR_BLOCK_SIZE) == 0)
       break;
 
+    // read content
     int content_size = tfile.get_content_size();
     tfile.contents.resize(content_size);
     while (content_size--) {
@@ -165,6 +176,14 @@ int main(int argc, char *argv[]) {
       tfile.contents.emplace_back(c);
     }
 
+    // translate char array to int (for st)
+    tfile.tar_mode = std::stoi(tfile.mode, nullptr, 8);
+    tfile.tar_uid = std::stoi(tfile.uid, nullptr, 8);
+    tfile.tar_gid = std::stoi(tfile.gid, nullptr, 8);
+    tfile.tar_size = tfile.get_content_size();
+    tfile.tar_mtime = std::stoi(tfile.modify_time, nullptr, 8);
+
+    // find parent of file
     std::size_t found;
     std::string file_name(tfile.name);
     std::string parent, self;
@@ -188,6 +207,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    // record parent of file
     auto itr = subfiles.find(parent);
     if (itr == subfiles.end())
       subfiles.insert(
@@ -195,11 +215,19 @@ int main(int argc, char *argv[]) {
     else
       itr->second.emplace_back(self);
 
+    // remove slash from back of name
+    std::string ori_name(tfile.name);
+    if (ori_name.back() == '/')
+      tfile.name[ori_name.size() - 1] = '\0';
+
     printf("[main] {%s}, size %d, found: %d, parent: {%s}, self: {%s}\n",
            tfile.name, (int)tfile.get_content_size(), (int)found,
            parent.c_str(), self.c_str());
 
+    // add the entry
     entries.insert(std::pair<std::string, struct tar_file>(tfile.name, tfile));
+
+    // move read head to next tar file
     infile.seekg(tfile.get_padding_size(), std::ios_base::cur);
   }
 
