@@ -183,49 +183,58 @@ int main(int argc, char *argv[]) {
     tfile.tar_size = tfile.get_content_size();
     tfile.tar_mtime = std::stoi(tfile.modify_time, nullptr, 8);
 
-    // find parent of file
-    std::size_t found;
     std::string file_name(tfile.name);
-    std::string parent, self;
-    if (file_name.back() == '/') { // directory
-      found = file_name.substr(0, file_name.size() - 1).rfind("/");
-      if (found == std::string::npos) {
-        parent = "/";
-        self = file_name.substr(0, file_name.size() - 1);
-      } else {
-        parent = "/" + file_name.substr(0, found);
-        self = file_name.substr(found + 1, file_name.size() - (found + 1));
-      }
-    } else { // regular file
-      found = file_name.rfind("/");
-      if (found == std::string::npos) {
-        parent = "/";
-        self = file_name;
-      } else {
-        parent = "/" + file_name.substr(0, found);
-        self = file_name.substr(found + 1, file_name.size() - (found + 1));
-      }
-    }
-
-    // record parent of file
-    auto itr = subfiles.find(parent);
-    if (itr == subfiles.end())
-      subfiles.insert(
-          std::pair<std::string, std::vector<std::string>>(parent, {self}));
-    else
-      itr->second.emplace_back(self);
 
     // remove slash from back of name
-    std::string ori_name(tfile.name);
-    if (ori_name.back() == '/')
-      tfile.name[ori_name.size() - 1] = '\0';
+    if (file_name.back() == '/')
+      file_name.pop_back();
 
-    printf("[main] {%s}, size %d, found: %d, parent: {%s}, self: {%s}\n",
-           tfile.name, (int)tfile.get_content_size(), (int)found,
-           parent.c_str(), self.c_str());
+    // check the entry
+    auto entry = entries.find(file_name);
+    if (entry == entries.end()) { // file name not found
+      // find parent of file
+      std::size_t found;
+      std::string parent, self;
+      if (file_name.back() == '/') { // directory
+        found = file_name.substr(0, file_name.size() - 1).rfind("/");
+        if (found == std::string::npos) {
+          parent = "/";
+          self = file_name.substr(0, file_name.size() - 1);
+        } else {
+          parent = "/" + file_name.substr(0, found);
+          self = file_name.substr(found + 1, file_name.size() - (found + 1));
+        }
+      } else { // regular file
+        found = file_name.rfind("/");
+        if (found == std::string::npos) {
+          parent = "/";
+          self = file_name;
+        } else {
+          parent = "/" + file_name.substr(0, found);
+          self = file_name.substr(found + 1, file_name.size() - (found + 1));
+        }
+      }
 
-    // add the entry
-    entries.insert(std::pair<std::string, struct tar_file>(tfile.name, tfile));
+      // record parent of file
+      auto itr = subfiles.find(parent);
+      if (itr == subfiles.end())
+        subfiles.insert(
+            std::pair<std::string, std::vector<std::string>>(parent, {self}));
+      else
+        itr->second.emplace_back(self);
+
+      // add new entry
+      entries.insert(std::pair<std::string, struct tar_file>(file_name, tfile));
+
+      printf("[main] {%s}, size %d, found: %d, parent: {%s}, self: {%s}\n",
+             file_name.c_str(), (int)tfile.get_content_size(), (int)found,
+             parent.c_str(), self.c_str());
+
+    } else { // file name exist
+      if (tfile.tar_mtime > entry->second.tar_mtime)
+        // replace that entry
+        entry->second = tfile;
+    }
 
     // move read head to next tar file
     infile.seekg(tfile.get_padding_size(), std::ios_base::cur);
