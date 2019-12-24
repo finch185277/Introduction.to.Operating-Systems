@@ -13,7 +13,6 @@ public GitHub repository or a public web page.
 #include <string.h>
 
 #define TAR_BLOCK_SIZE 512
-#include <algorithm>
 #include <fstream>
 #include <string>
 #include <unordered_map>
@@ -101,13 +100,13 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
     return -ENOENT;
   } else {
     int read_size;
-    if (size <= itr->second.get_content_size() - offset)
+    if (itr->second.get_content_size() - (size + offset) >= 0)
       read_size = size;
     else
-      read_size = itr->second.get_content_size() - offset;
+      read_size = (size + offset) - itr->second.get_content_size();
 
     // copy contents into buffer
-    strncpy(buffer, itr->second.contents, read_size);
+    memcpy(buffer, &itr->second.contents[offset], read_size);
 
     return read_size;
   }
@@ -174,24 +173,13 @@ int main(int argc, char *argv[]) {
       // find parent of file
       std::size_t found;
       std::string parent, self;
-      if (file_name.back() == '/') { // directory
-        found = file_name.rfind("/");
-        if (found == std::string::npos) {
-          parent = "/";
-          self = file_name;
-        } else {
-          parent = "/" + file_name.substr(0, found);
-          self = file_name.substr(found + 1, file_name.size() - (found + 1));
-        }
-      } else { // regular file
-        found = file_name.rfind("/");
-        if (found == std::string::npos) {
-          parent = "/";
-          self = file_name;
-        } else {
-          parent = "/" + file_name.substr(0, found);
-          self = file_name.substr(found + 1, file_name.size() - (found + 1));
-        }
+      found = file_name.rfind("/");
+      if (found == std::string::npos) {
+        parent = "/";
+        self = file_name;
+      } else {
+        parent = "/" + file_name.substr(0, found);
+        self = file_name.substr(found + 1, file_name.size() - (found + 1));
       }
 
       // record parent of file
