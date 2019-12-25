@@ -112,9 +112,9 @@ int my_read(const char *path, char *buffer, size_t size, off_t offset,
   } else {
     int read_size;
     if (itr->second.get_content_size() - (size + offset) >= 0)
-      read_size = size;
+      read_size = size; // buffer size
     else
-      read_size = (size + offset) - itr->second.get_content_size();
+      read_size = itr->second.get_content_size() - offset; // remain of contents
 
     // copy contents into buffer
     memcpy(buffer, &itr->second.contents[offset], read_size);
