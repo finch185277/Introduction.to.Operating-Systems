@@ -84,7 +84,7 @@ int my_getattr(const char *path, struct stat *st) {
   std::string file_name(path);
 
   if (file_name == "/") {
-    st->st_mode = S_IFDIR | 0777;
+    st->st_mode = S_IFDIR | 0444;
     st->st_size = 0;
   } else {
     auto itr = entries.find(file_name.substr(1, file_name.size() - 1));
